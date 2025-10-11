@@ -1,14 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    let initialURL: URL?
-    @StateObject private var documentViewModel: DocumentViewModel
+    @StateObject private var documentViewModel = DocumentViewModel()
     @EnvironmentObject var themeManager: ThemeManager
-
-    init(initialURL: URL? = nil) {
-        self.initialURL = initialURL
-        _documentViewModel = StateObject(wrappedValue: DocumentViewModel())
-    }
+    @EnvironmentObject var windowManager: WindowManager
 
     var body: some View {
         HSplitView {
@@ -18,6 +13,7 @@ struct ContentView: View {
             MarkdownPreviewView(markdownText: documentViewModel.markdownText)
                 .frame(minWidth: 300)
         }
+        .navigationTitle(documentViewModel.document.fileName)
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 Button(action: {
@@ -51,8 +47,15 @@ struct ContentView: View {
             documentViewModel.saveFile()
         }
         .onAppear {
-            if let url = initialURL {
+            if let url = windowManager.fileToOpen {
                 documentViewModel.openFile(at: url)
+                windowManager.fileToOpen = nil
+            }
+        }
+        .onChange(of: windowManager.fileToOpen) { oldURL, newURL in
+            if let url = newURL {
+                documentViewModel.openFile(at: url)
+                windowManager.fileToOpen = nil
             }
         }
         .alert("Error", isPresented: .constant(documentViewModel.errorMessage != nil)) {

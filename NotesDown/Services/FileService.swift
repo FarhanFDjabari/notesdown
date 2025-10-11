@@ -23,9 +23,10 @@ class FileService: FileServiceProtocol {
                 panel.canChooseDirectories = false
                 panel.canChooseFiles = true
                 panel.allowedContentTypes = [
-                    .plainText,
                     UTType(filenameExtension: "md") ?? .plainText,
-                    UTType(filenameExtension: "markdown") ?? .plainText
+                    UTType(filenameExtension: "markdown") ?? .plainText,
+                    UTType(filenameExtension: "mdown") ?? .plainText,
+                    UTType(filenameExtension: "mkd") ?? .plainText
                 ]
                 panel.message = "Select a markdown file to open"
 

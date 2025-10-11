@@ -174,16 +174,6 @@ NotesDown/
 └── README.md                  # This file
 ```
 
-## Future Enhancements
-
-Potential features for future versions:
-- Export to HTML/PDF
-- Custom themes with color customization
-- Syntax highlighting for code blocks
-- Multiple document tabs
-- iCloud sync
-- iOS/iPadOS versions
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

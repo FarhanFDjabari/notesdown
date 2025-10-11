@@ -5,21 +5,23 @@ import AppKit
 struct NotesDownApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var themeManager = ThemeManager()
-
+    
     var body: some Scene {
         WindowGroup(id: "main") {
-            ContentView(initialURL: appDelegate.windowManager.pendingURL)
+            ContentView()
                 .environmentObject(themeManager)
                 .preferredColorScheme(themeManager.colorScheme)
                 .environmentObject(appDelegate.windowManager)
         }
+        .handlesExternalEvents(matching: Set(arrayLiteral: "main"))
+        .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open...") {
-                    openNewWindow(with: nil)
+                    NotificationCenter.default.post(name: .openFile, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: .command)
-
+                
                 Button("Save") {
                     NotificationCenter.default.post(name: .saveFile, object: nil)
                 }
@@ -27,47 +29,52 @@ struct NotesDownApp: App {
             }
         }
     }
-
-    private func openNewWindow(with url: URL?) {
-        NotificationCenter.default.post(name: .openFile, object: nil)
-    }
 }
 
 class WindowManager: ObservableObject {
-    @Published var pendingURL: URL?
+    @Published var fileToOpen: URL?
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     let windowManager = WindowManager()
-
+    
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first else { return }
+        windowManager.fileToOpen = url
 
-        windowManager.pendingURL = url
-
-        if NSApplication.shared.windows.isEmpty {
-            return
+        let visibleWindow = application.windows.first {
+            $0.isVisible &&
+            !$0.isMiniaturized &&
+            $0.canBecomeKey
         }
 
-        openNewWindowWithURL(url)
+        if let window = visibleWindow {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            let minimizedWindow = application.windows.first { $0.isMiniaturized }
+
+            if let window = minimizedWindow {
+                window.deminiaturize(nil)
+            } else {
+                NSApp.activate(ignoringOtherApps: true)
+                let bundleURL = Bundle.main.bundleURL
+                NSWorkspace.shared.openApplication(at: bundleURL, configuration: NSWorkspace.OpenConfiguration())
+            }
+        }
     }
-
-    private func openNewWindowWithURL(_ url: URL) {
-        let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-
-        newWindow.center()
-        newWindow.isReleasedWhenClosed = false
-
-        let contentView = ContentView(initialURL: url)
-            .environmentObject(ThemeManager())
-
-        newWindow.contentView = NSHostingView(rootView: contentView)
-        newWindow.makeKeyAndOrderFront(nil)
+    
+    // Handle the case when app should reopen (e.g., clicking dock icon when no windows are visible)
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            // No visible windows, check if we have any windows at all
+            if !sender.windows.isEmpty {
+                if let window = sender.windows.first {
+                    window.makeKeyAndOrderFront(nil)
+                }
+            }
+            return true
+        }
+        return false
     }
 }
 
