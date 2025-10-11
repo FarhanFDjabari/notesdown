@@ -98,30 +98,30 @@ xcodebuild test -project NotesDown.xcodeproj -scheme NotesDown -destination 'pla
 ### Manual Testing Checklist
 
 #### Markdown Preview
-- [ ] Open the app
-- [ ] Type markdown syntax (headers, bold, italic, lists, code blocks)
-- [ ] Verify preview updates in real-time
-- [ ] Check that all markdown elements render correctly
+- [x] Open the app
+- [x] Type markdown syntax (headers, bold, italic, lists, code blocks)
+- [x] Verify preview updates in real-time
+- [x] Check that all markdown elements render correctly
 
 #### File Operations
-- [ ] Click "Open" or press `Cmd+O`
-- [ ] Select a .md file
-- [ ] Verify file content loads in editor
-- [ ] Make changes to the content
-- [ ] Click "Save" or press `Cmd+S`
-- [ ] Verify changes are saved (reopen file to confirm)
+- [x] Click "Open" or press `Cmd+O`
+- [x] Select a .md file
+- [x] Verify file content loads in editor
+- [x] Make changes to the content
+- [x] Click "Save" or press `Cmd+S`
+- [x] Verify changes are saved (reopen file to confirm)
 
 #### Theme Switching
-- [ ] Click the theme toggle button in toolbar
-- [ ] Verify app switches between light and dark mode
-- [ ] Check that both editor and preview adapt to theme
-- [ ] Verify text is readable in both themes
+- [x] Click the theme toggle button in toolbar
+- [x] Verify app switches between light and dark mode
+- [x] Check that both editor and preview adapt to theme
+- [x] Verify text is readable in both themes
 
 #### Error Handling
-- [ ] Try to open a non-existent file (should show error)
-- [ ] Cancel file open dialog (should not crash)
-- [ ] Cancel file save dialog (should not crash)
-- [ ] Try to save to a protected location (should show error)
+- [x] Try to open a non-existent file (should show error)
+- [x] Cancel file open dialog (should not crash)
+- [x] Cancel file save dialog (should not crash)
+- [x] Try to save to a protected location (should show error)
 
 ## Technical Details
 
