@@ -1,8 +1,14 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var documentViewModel = DocumentViewModel()
+    let initialURL: URL?
+    @StateObject private var documentViewModel: DocumentViewModel
     @EnvironmentObject var themeManager: ThemeManager
+
+    init(initialURL: URL? = nil) {
+        self.initialURL = initialURL
+        _documentViewModel = StateObject(wrappedValue: DocumentViewModel())
+    }
 
     var body: some View {
         HSplitView {
@@ -43,6 +49,11 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .saveFile)) { _ in
             documentViewModel.saveFile()
+        }
+        .onAppear {
+            if let url = initialURL {
+                documentViewModel.openFile(at: url)
+            }
         }
         .alert("Error", isPresented: .constant(documentViewModel.errorMessage != nil)) {
             Button("OK") {

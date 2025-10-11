@@ -186,8 +186,12 @@ Potential features for future versions:
 
 ## License
 
-This is a sample project created for educational purposes.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
-This project demonstrates modern SwiftUI and MVVM architecture patterns. Feel free to use it as a reference for your own projects!
+This project demonstrates modern SwiftUI and MVVM architecture patterns. Contributions are welcome! Feel free to:
+- Report bugs
+- Suggest new features
+- Submit pull requests
+- Use this as a reference for your own projects

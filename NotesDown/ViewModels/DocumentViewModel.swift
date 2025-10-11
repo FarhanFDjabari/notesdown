@@ -67,6 +67,26 @@ class DocumentViewModel: ObservableObject {
         }
     }
 
+    func openFile(at url: URL) {
+        Task {
+            do {
+                // Start accessing security-scoped resource
+                let didStartAccessing = url.startAccessingSecurityScopedResource()
+                defer {
+                    if didStartAccessing {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+
+                let content = try String(contentsOf: url, encoding: .utf8)
+                document = MarkdownDocument(content: content, fileURL: url, isModified: false)
+                errorMessage = nil
+            } catch {
+                errorMessage = "Failed to open file: \(error.localizedDescription)"
+            }
+        }
+    }
+
     func saveFile() {
         Task {
             do {
