@@ -7,9 +7,12 @@ A simple, elegant markdown editor for macOS with live preview and theming suppor
 - **Markdown Editor**: Clean text editor with monospace font for comfortable writing
 - **Live Preview**: Real-time markdown rendering using Apple's native AttributedString markdown parser
 - **File Operations**: Open and save markdown files (.md, .markdown)
+- **Multiple Windows**: Open untitled documents or selected files in separate windows
 - **Light/Dark Mode**: Toggle between light and dark themes
 - **Keyboard Shortcuts**:
+  - `Cmd+N`: New window
   - `Cmd+O`: Open file
+  - `Shift+Cmd+O`: Open files in new windows
   - `Cmd+S`: Save file
 - **Offline Support**: Works completely offline with no external dependencies
 - **Apple Silicon Optimized**: Built specifically for Apple Silicon Macs
@@ -138,6 +141,8 @@ Supported Markdown features:
 - Headings (H1-H6) with visual hierarchy
 - **Bold** and *italic* text
 - Inline `code` and code blocks with language detection
+- Tables with column alignment
+- Mermaid flowchart code blocks with native preview
 - Unordered and ordered lists (with nesting)
 - Block quotes
 - Horizontal rules

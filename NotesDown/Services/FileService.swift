@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 protocol FileServiceProtocol {
     func openFile() async throws -> (content: String, url: URL)
+    func openFiles() async throws -> [URL]
     func saveFile(content: String, to url: URL?) async throws -> URL
 }
 
@@ -18,16 +19,7 @@ class FileService: FileServiceProtocol {
     func openFile() async throws -> (content: String, url: URL) {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.main.async {
-                let panel = NSOpenPanel()
-                panel.allowsMultipleSelection = false
-                panel.canChooseDirectories = false
-                panel.canChooseFiles = true
-                panel.allowedContentTypes = [
-                    UTType(filenameExtension: "md") ?? .plainText,
-                    UTType(filenameExtension: "markdown") ?? .plainText,
-                    UTType(filenameExtension: "mdown") ?? .plainText,
-                    UTType(filenameExtension: "mkd") ?? .plainText
-                ]
+                let panel = Self.markdownOpenPanel(allowsMultipleSelection: false)
                 panel.message = "Select a markdown file to open"
 
                 panel.begin { response in
@@ -42,6 +34,24 @@ class FileService: FileServiceProtocol {
                     } catch {
                         continuation.resume(throwing: FileServiceError.readError(error))
                     }
+                }
+            }
+        }
+    }
+
+    func openFiles() async throws -> [URL] {
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.main.async {
+                let panel = Self.markdownOpenPanel(allowsMultipleSelection: true)
+                panel.message = "Select markdown files to open in new windows"
+
+                panel.begin { response in
+                    guard response == .OK, !panel.urls.isEmpty else {
+                        continuation.resume(throwing: FileServiceError.userCancelled)
+                        return
+                    }
+
+                    continuation.resume(returning: panel.urls)
                 }
             }
         }
@@ -84,5 +94,19 @@ class FileService: FileServiceProtocol {
                 }
             }
         }
+    }
+
+    private static func markdownOpenPanel(allowsMultipleSelection: Bool) -> NSOpenPanel {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = allowsMultipleSelection
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "md") ?? .plainText,
+            UTType(filenameExtension: "markdown") ?? .plainText,
+            UTType(filenameExtension: "mdown") ?? .plainText,
+            UTType(filenameExtension: "mkd") ?? .plainText
+        ]
+        return panel
     }
 }

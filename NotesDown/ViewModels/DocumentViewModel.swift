@@ -67,6 +67,10 @@ class DocumentViewModel: ObservableObject {
         }
     }
 
+    func chooseFilesForNewWindows() async throws -> [URL] {
+        try await fileService.openFiles()
+    }
+
     func openFile(at url: URL) {
         Task {
             do {

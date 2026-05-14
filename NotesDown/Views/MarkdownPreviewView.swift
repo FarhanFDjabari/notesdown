@@ -1,5 +1,6 @@
 import SwiftUI
 import Markdown
+import Foundation
 
 struct MarkdownPreviewView: View {
     let markdownText: String
@@ -47,8 +48,10 @@ struct MarkdownBlockView: View {
         if let heading = block as? Heading {
             HeadingView(heading: heading)
         } else if let paragraph = block as? Paragraph {
-            Text(paragraph.plainText)
+            MarkdownInlineText(markdown: paragraph.format())
                 .frame(maxWidth: .infinity, alignment: .leading)
+        } else if let table = block as? Markdown.Table {
+            MarkdownTableView(table: table)
         } else if let codeBlock = block as? CodeBlock {
             CodeBlockView(codeBlock: codeBlock)
         } else if let list = block as? UnorderedList {
@@ -128,20 +131,274 @@ struct CodeBlockView: View {
     let codeBlock: CodeBlock
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let language = codeBlock.language, !language.isEmpty {
-                Text(language)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+        if codeBlock.language?.lowercased() == "mermaid" {
+            MermaidBlockView(source: codeBlock.code)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                if let language = codeBlock.language, !language.isEmpty {
+                    Text(language)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
 
-            Text(codeBlock.code)
+                Text(codeBlock.code)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+            }
+        }
+    }
+}
+
+struct MarkdownInlineText: View {
+    let markdown: String
+
+    var body: some View {
+        Text(attributedMarkdown)
+    }
+
+    private var attributedMarkdown: AttributedString {
+        let trimmedMarkdown = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+
+        return (try? AttributedString(markdown: trimmedMarkdown, options: options)) ?? AttributedString(trimmedMarkdown)
+    }
+}
+
+struct MarkdownTableView: View {
+    let table: Markdown.Table
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    ForEach(Array(headerCells.enumerated()), id: \.offset) { index, cell in
+                        tableCell(cell, column: index, isHeader: true)
+                    }
+                }
+
+                ForEach(Array(bodyRows.enumerated()), id: \.offset) { _, row in
+                    GridRow {
+                        ForEach(Array(row.cells.enumerated()), id: \.offset) { index, cell in
+                            tableCell(cell, column: index, isHeader: false)
+                        }
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var headerCells: [Markdown.Table.Cell] {
+        Array(table.head.cells)
+    }
+
+    private var bodyRows: [Markdown.Table.Row] {
+        Array(table.body.rows)
+    }
+
+    private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool) -> some View {
+        MarkdownInlineText(markdown: cell.format())
+            .font(isHeader ? .headline : .body)
+            .fontWeight(isHeader ? .semibold : .regular)
+            .multilineTextAlignment(alignment(for: column))
+            .frame(minWidth: 120, maxWidth: 240, alignment: frameAlignment(for: column))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isHeader ? Color(NSColor.controlBackgroundColor) : Color.clear)
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.25))
+                    .frame(width: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.25))
+                    .frame(height: 1)
+            }
+    }
+
+    private func alignment(for column: Int) -> TextAlignment {
+        switch table.columnAlignments[safe: column] ?? nil {
+        case .center:
+            return .center
+        case .right:
+            return .trailing
+        case .left, .none:
+            return .leading
+        }
+    }
+
+    private func frameAlignment(for column: Int) -> Alignment {
+        switch table.columnAlignments[safe: column] ?? nil {
+        case .center:
+            return .center
+        case .right:
+            return .trailing
+        case .left, .none:
+            return .leading
+        }
+    }
+}
+
+struct MermaidBlockView: View {
+    let source: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("mermaid")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            MermaidDiagramView(diagram: MermaidDiagram(source: source))
+                .padding(12)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.65))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Text(source)
                 .font(.system(.body, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(8)
         }
+    }
+}
+
+struct MermaidDiagramView: View {
+    let diagram: MermaidDiagram
+
+    var body: some View {
+        if diagram.edges.isEmpty {
+            Text("Mermaid diagram preview is available for flowchart edges.")
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(diagram.edges.enumerated()), id: \.offset) { _, edge in
+                    HStack(spacing: 8) {
+                        MermaidNodeView(text: diagram.label(for: edge.from))
+
+                        VStack(spacing: 2) {
+                            if let label = edge.label {
+                                Text(label)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Image(systemName: "arrow.right")
+                                .foregroundColor(.accentColor)
+                        }
+                        .frame(minWidth: 32)
+
+                        MermaidNodeView(text: diagram.label(for: edge.to))
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+struct MermaidNodeView: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.callout)
+            .fontWeight(.medium)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color(NSColor.textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
+            }
+    }
+}
+
+struct MermaidDiagram {
+    struct Edge {
+        let from: String
+        let to: String
+        let label: String?
+    }
+
+    private(set) var edges: [Edge] = []
+    private var labels: [String: String] = [:]
+
+    init(source: String) {
+        parse(source)
+    }
+
+    func label(for nodeID: String) -> String {
+        labels[nodeID] ?? nodeID
+    }
+
+    private mutating func parse(_ source: String) {
+        let edgeOperators = ["-->", "==>", "-.->", "---"]
+
+        for rawLine in source.components(separatedBy: .newlines) {
+            var line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            line = line.trimmingCharacters(in: CharacterSet(charactersIn: ";"))
+
+            guard !line.isEmpty,
+                  !line.hasPrefix("flowchart"),
+                  !line.hasPrefix("graph"),
+                  let edgeOperator = edgeOperators.first(where: { line.contains($0) }) else {
+                continue
+            }
+
+            let parts = line.components(separatedBy: edgeOperator)
+            guard parts.count >= 2 else { continue }
+
+            let fromNode = parseNode(parts[0])
+            let toNode = parseNode(parts[1])
+
+            labels[fromNode.id] = fromNode.label
+            labels[toNode.id] = toNode.label
+            edges.append(Edge(from: fromNode.id, to: toNode.id, label: toNode.edgeLabel))
+        }
+    }
+
+    private mutating func parseNode(_ rawValue: String) -> (id: String, label: String, edgeLabel: String?) {
+        var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        var edgeLabel: String?
+
+        if let firstPipe = value.firstIndex(of: "|"),
+           let secondPipe = value[value.index(after: firstPipe)...].firstIndex(of: "|") {
+            edgeLabel = String(value[value.index(after: firstPipe)..<secondPipe])
+            value.removeSubrange(firstPipe...secondPipe)
+            value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let pairs: [(Character, Character)] = [("[", "]"), ("(", ")"), ("{", "}")]
+        for pair in pairs {
+            if let open = value.firstIndex(of: pair.0),
+               let close = value.lastIndex(of: pair.1),
+               open < close {
+                let id = String(value[..<open]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let label = String(value[value.index(after: open)..<close])
+                return (id.isEmpty ? label : id, label, edgeLabel)
+            }
+        }
+
+        return (value, value, edgeLabel)
+    }
+}
+
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
