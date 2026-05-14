@@ -77,6 +77,18 @@ final class DocumentViewModelTests: XCTestCase {
         XCTAssertTrue(sut.errorMessage?.contains("Failed to open file") ?? false)
     }
 
+    func testChooseFilesForNewWindows() async throws {
+        let expectedURLs = [
+            URL(fileURLWithPath: "/tmp/first.md"),
+            URL(fileURLWithPath: "/tmp/second.md")
+        ]
+        mockFileService.mockOpenFilesResult = expectedURLs
+
+        let urls = try await sut.chooseFilesForNewWindows()
+
+        XCTAssertEqual(urls, expectedURLs)
+    }
+
     func testSaveFileWithExistingURL() async {
         let url = URL(fileURLWithPath: "/tmp/test.md")
         sut.document.fileURL = url
@@ -121,7 +133,9 @@ final class DocumentViewModelTests: XCTestCase {
 // Mock FileService for testing
 class MockFileService: FileServiceProtocol {
     var mockOpenResult: (content: String, url: URL)?
+    var mockOpenFilesResult: [URL]?
     var mockOpenError: Error?
+    var mockOpenFilesError: Error?
     var mockSaveResult: URL?
     var mockSaveError: Error?
 
@@ -130,6 +144,16 @@ class MockFileService: FileServiceProtocol {
             throw error
         }
         guard let result = mockOpenResult else {
+            throw FileService.FileServiceError.invalidURL
+        }
+        return result
+    }
+
+    func openFiles() async throws -> [URL] {
+        if let error = mockOpenFilesError {
+            throw error
+        }
+        guard let result = mockOpenFilesResult else {
             throw FileService.FileServiceError.invalidURL
         }
         return result
