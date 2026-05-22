@@ -228,6 +228,7 @@ struct MarkdownTableView: View {
     }
 
     static func formattedText(for cell: Markdown.Table.Cell) -> String {
+        // Table.Cell.format() asserts inside swift-markdown 0.7.x. Use inline text only.
         cell.plainText
     }
 
