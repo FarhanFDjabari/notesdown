@@ -7,11 +7,13 @@ final class ThemeManagerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        UserDefaults.standard.removeObject(forKey: "isDarkMode")
         sut = ThemeManager()
     }
 
     override func tearDown() {
         sut = nil
+        UserDefaults.standard.removeObject(forKey: "isDarkMode")
         super.tearDown()
     }
 

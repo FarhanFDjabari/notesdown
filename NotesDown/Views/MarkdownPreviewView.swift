@@ -207,7 +207,7 @@ struct MarkdownTableView: View {
     }
 
     private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool) -> some View {
-        MarkdownInlineText(markdown: cell.format())
+        MarkdownInlineText(markdown: Self.formattedText(for: cell))
             .font(isHeader ? .headline : .body)
             .fontWeight(isHeader ? .semibold : .regular)
             .multilineTextAlignment(alignment(for: column))
@@ -225,6 +225,10 @@ struct MarkdownTableView: View {
                     .fill(Color.gray.opacity(0.25))
                     .frame(height: 1)
             }
+    }
+
+    static func formattedText(for cell: Markdown.Table.Cell) -> String {
+        cell.plainText
     }
 
     private func alignment(for column: Int) -> TextAlignment {
