@@ -44,17 +44,17 @@ final class MarkdownPreviewViewTests: XCTestCase {
         )
     }
 
-    func testMarkdownTableViewConstrainsLongCellContent() throws {
+    func testMarkdownTableViewRendersFullLongCellContent() throws {
         let source = try markdownPreviewViewSource()
 
-        XCTAssertTrue(source.contains(".lineLimit(Self.maximumVisibleCellLines)"))
-        XCTAssertTrue(source.contains(".truncationMode(.tail)"))
+        XCTAssertFalse(source.contains(".lineLimit("))
+        XCTAssertFalse(source.contains(".truncationMode("))
+        XCTAssertTrue(source.contains(".fixedSize(horizontal: false, vertical: true)"))
         XCTAssertTrue(source.contains(".clipped()"))
         XCTAssertTrue(source.contains(".textSelection(.disabled)"))
-        XCTAssertFalse(source.contains(".fixedSize(horizontal: false, vertical: true)"))
     }
 
-    func testTableRowUsesExpandedHeightWhenAnyCellIsLong() throws {
+    func testTableRowHeightGrowsToFitLongestCell() throws {
         let document = Document(parsing: """
         | Short | Long |
         | --- | --- |
@@ -67,6 +67,21 @@ final class MarkdownPreviewViewTests: XCTestCase {
         let shortRowHeight = MarkdownTableView.rowHeight(for: Array(try XCTUnwrap(rows.last).cells))
 
         XCTAssertGreaterThan(longRowHeight, shortRowHeight)
+    }
+
+    func testTableRowHeightContinuesGrowingForVeryLongCells() throws {
+        let document = Document(parsing: """
+        | Short | Long |
+        | --- | --- |
+        | OK | This is a much longer table cell that should render in full instead of being truncated after just a few visible lines in the markdown preview table layout |
+        | OK | This is a long table cell |
+        """)
+        let table = try XCTUnwrap(Array(document.children).first as? Markdown.Table)
+        let rows = Array(table.body.rows)
+        let veryLongRowHeight = MarkdownTableView.rowHeight(for: Array(try XCTUnwrap(rows.first).cells))
+        let longRowHeight = MarkdownTableView.rowHeight(for: Array(try XCTUnwrap(rows.last).cells))
+
+        XCTAssertGreaterThan(veryLongRowHeight, longRowHeight)
     }
 
     private func markdownPreviewViewSource() throws -> String {

@@ -173,9 +173,9 @@ struct MarkdownTableView: View {
     let table: Markdown.Table
     private static let cellWidth: CGFloat = 240
     private static let minimumCellHeight: CGFloat = 48
-    private static let expandedCellHeight: CGFloat = 84
-    private static let maximumVisibleCellLines = 3
-    private static let longCellCharacterThreshold = 36
+    private static let estimatedCharactersPerLine = 24
+    private static let estimatedLineHeight: CGFloat = 22
+    private static let verticalPadding: CGFloat = 16
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -218,8 +218,7 @@ struct MarkdownTableView: View {
         Text(Self.formattedText(for: cell))
             .font(isHeader ? .headline : .body)
             .fontWeight(isHeader ? .semibold : .regular)
-            .lineLimit(Self.maximumVisibleCellLines)
-            .truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
             .multilineTextAlignment(alignment(for: column))
             .frame(
                 maxWidth: .infinity,
@@ -251,13 +250,25 @@ struct MarkdownTableView: View {
     }
 
     static func rowHeight(for cells: [Markdown.Table.Cell]) -> CGFloat {
-        let hasLongCell = cells
+        let maximumLineCount = cells
             .map(formattedText)
-            .contains { text in
-                text.count > longCellCharacterThreshold || text.contains(where: \.isNewline)
-            }
+            .map(estimatedLineCount(for:))
+            .max() ?? 1
 
-        return hasLongCell ? expandedCellHeight : minimumCellHeight
+        return max(
+            minimumCellHeight,
+            CGFloat(maximumLineCount) * estimatedLineHeight + verticalPadding
+        )
+    }
+
+    private static func estimatedLineCount(for text: String) -> Int {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        return max(
+            1,
+            lines.reduce(0) { total, line in
+                total + max(1, Int(ceil(Double(line.count) / Double(estimatedCharactersPerLine))))
+            }
+        )
     }
 
     private func alignment(for column: Int) -> TextAlignment {
