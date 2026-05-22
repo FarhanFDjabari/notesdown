@@ -36,16 +36,28 @@ final class MarkdownPreviewViewTests: XCTestCase {
     }
 
     func testMarkdownTableViewDoesNotReintroduceCellFormatCall() throws {
-        let testFileURL = URL(fileURLWithPath: #filePath)
-        let sourceURL = testFileURL
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("NotesDown/Views/MarkdownPreviewView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let source = try markdownPreviewViewSource()
 
         XCTAssertFalse(
             source.contains("cell.format()"),
             "Table.Cell.format() asserts inside swift-markdown and must not be used for table rendering."
         )
+    }
+
+    func testMarkdownTableViewConstrainsLongCellContent() throws {
+        let source = try markdownPreviewViewSource()
+
+        XCTAssertTrue(source.contains(".lineLimit(Self.maximumVisibleCellLines)"))
+        XCTAssertTrue(source.contains(".truncationMode(.tail)"))
+        XCTAssertTrue(source.contains(".clipped()"))
+    }
+
+    private func markdownPreviewViewSource() throws -> String {
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let sourceURL = testFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("NotesDown/Views/MarkdownPreviewView.swift")
+        return try String(contentsOf: sourceURL, encoding: .utf8)
     }
 }

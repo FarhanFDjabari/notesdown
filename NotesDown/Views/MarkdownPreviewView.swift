@@ -171,6 +171,9 @@ struct MarkdownInlineText: View {
 
 struct MarkdownTableView: View {
     let table: Markdown.Table
+    private static let minimumCellWidth: CGFloat = 120
+    private static let maximumCellWidth: CGFloat = 240
+    private static let maximumVisibleCellLines = 3
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -210,8 +213,15 @@ struct MarkdownTableView: View {
         MarkdownInlineText(markdown: Self.formattedText(for: cell))
             .font(isHeader ? .headline : .body)
             .fontWeight(isHeader ? .semibold : .regular)
+            .lineLimit(Self.maximumVisibleCellLines)
+            .truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
             .multilineTextAlignment(alignment(for: column))
-            .frame(minWidth: 120, maxWidth: 240, alignment: frameAlignment(for: column))
+            .frame(
+                minWidth: Self.minimumCellWidth,
+                maxWidth: Self.maximumCellWidth,
+                alignment: frameAlignment(for: column)
+            )
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(isHeader ? Color(NSColor.controlBackgroundColor) : Color.clear)
@@ -225,6 +235,7 @@ struct MarkdownTableView: View {
                     .fill(Color.gray.opacity(0.25))
                     .frame(height: 1)
             }
+            .clipped()
     }
 
     static func formattedText(for cell: Markdown.Table.Cell) -> String {
