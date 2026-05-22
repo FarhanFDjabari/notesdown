@@ -171,20 +171,28 @@ struct MarkdownInlineText: View {
 
 struct MarkdownTableView: View {
     let table: Markdown.Table
+    private static let cellWidth: CGFloat = 240
+    private static let minimumCellHeight: CGFloat = 48
+    private static let estimatedCharactersPerLine = 24
+    private static let estimatedLineHeight: CGFloat = 22
+    private static let verticalPadding: CGFloat = 16
 
     var body: some View {
         ScrollView(.horizontal) {
             Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                let headerHeight = Self.rowHeight(for: headerCells)
                 GridRow {
                     ForEach(Array(headerCells.enumerated()), id: \.offset) { index, cell in
-                        tableCell(cell, column: index, isHeader: true)
+                        tableCell(cell, column: index, isHeader: true, rowHeight: headerHeight)
                     }
                 }
 
                 ForEach(Array(bodyRows.enumerated()), id: \.offset) { _, row in
+                    let cells = Array(row.cells)
+                    let rowHeight = Self.rowHeight(for: cells)
                     GridRow {
-                        ForEach(Array(row.cells.enumerated()), id: \.offset) { index, cell in
-                            tableCell(cell, column: index, isHeader: false)
+                        ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
+                            tableCell(cell, column: index, isHeader: false, rowHeight: rowHeight)
                         }
                     }
                 }
@@ -206,14 +214,23 @@ struct MarkdownTableView: View {
         Array(table.body.rows)
     }
 
-    private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool) -> some View {
-        MarkdownInlineText(markdown: cell.format())
+    private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool, rowHeight: CGFloat) -> some View {
+        Text(Self.formattedText(for: cell))
             .font(isHeader ? .headline : .body)
             .fontWeight(isHeader ? .semibold : .regular)
+            .fixedSize(horizontal: false, vertical: true)
             .multilineTextAlignment(alignment(for: column))
-            .frame(minWidth: 120, maxWidth: 240, alignment: frameAlignment(for: column))
+            .frame(
+                maxWidth: .infinity,
+                alignment: frameAlignment(for: column)
+            )
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
+            .frame(width: Self.cellWidth, alignment: frameAlignment(for: column))
+            .frame(height: rowHeight, alignment: frameAlignment(for: column))
+            .contentShape(Rectangle())
+            .clipped()
+            .textSelection(.disabled)
             .background(isHeader ? Color(NSColor.controlBackgroundColor) : Color.clear)
             .overlay(alignment: .trailing) {
                 Rectangle()
@@ -225,6 +242,33 @@ struct MarkdownTableView: View {
                     .fill(Color.gray.opacity(0.25))
                     .frame(height: 1)
             }
+    }
+
+    static func formattedText(for cell: Markdown.Table.Cell) -> String {
+        // Table.Cell.format() asserts inside swift-markdown 0.7.x. Use inline text only.
+        cell.plainText
+    }
+
+    static func rowHeight(for cells: [Markdown.Table.Cell]) -> CGFloat {
+        let maximumLineCount = cells
+            .map(formattedText)
+            .map(estimatedLineCount(for:))
+            .max() ?? 1
+
+        return max(
+            minimumCellHeight,
+            CGFloat(maximumLineCount) * estimatedLineHeight + verticalPadding
+        )
+    }
+
+    private static func estimatedLineCount(for text: String) -> Int {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        return max(
+            1,
+            lines.reduce(0) { total, line in
+                total + max(1, Int(ceil(Double(line.count) / Double(estimatedCharactersPerLine))))
+            }
+        )
     }
 
     private func alignment(for column: Int) -> TextAlignment {
