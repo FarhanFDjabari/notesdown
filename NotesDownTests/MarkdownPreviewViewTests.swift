@@ -54,6 +54,21 @@ final class MarkdownPreviewViewTests: XCTestCase {
         XCTAssertFalse(source.contains(".fixedSize(horizontal: false, vertical: true)"))
     }
 
+    func testTableRowUsesExpandedHeightWhenAnyCellIsLong() throws {
+        let document = Document(parsing: """
+        | Short | Long |
+        | --- | --- |
+        | OK | This is a long table cell that needs multiple visible lines in the preview |
+        | OK | Fine |
+        """)
+        let table = try XCTUnwrap(Array(document.children).first as? Markdown.Table)
+        let rows = Array(table.body.rows)
+        let longRowHeight = MarkdownTableView.rowHeight(for: Array(try XCTUnwrap(rows.first).cells))
+        let shortRowHeight = MarkdownTableView.rowHeight(for: Array(try XCTUnwrap(rows.last).cells))
+
+        XCTAssertGreaterThan(longRowHeight, shortRowHeight)
+    }
+
     private func markdownPreviewViewSource() throws -> String {
         let testFileURL = URL(fileURLWithPath: #filePath)
         let sourceURL = testFileURL

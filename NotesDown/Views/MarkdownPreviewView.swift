@@ -173,21 +173,26 @@ struct MarkdownTableView: View {
     let table: Markdown.Table
     private static let cellWidth: CGFloat = 240
     private static let minimumCellHeight: CGFloat = 48
+    private static let expandedCellHeight: CGFloat = 84
     private static let maximumVisibleCellLines = 3
+    private static let longCellCharacterThreshold = 36
 
     var body: some View {
         ScrollView(.horizontal) {
             Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                let headerHeight = Self.rowHeight(for: headerCells)
                 GridRow {
                     ForEach(Array(headerCells.enumerated()), id: \.offset) { index, cell in
-                        tableCell(cell, column: index, isHeader: true)
+                        tableCell(cell, column: index, isHeader: true, rowHeight: headerHeight)
                     }
                 }
 
                 ForEach(Array(bodyRows.enumerated()), id: \.offset) { _, row in
+                    let cells = Array(row.cells)
+                    let rowHeight = Self.rowHeight(for: cells)
                     GridRow {
-                        ForEach(Array(row.cells.enumerated()), id: \.offset) { index, cell in
-                            tableCell(cell, column: index, isHeader: false)
+                        ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
+                            tableCell(cell, column: index, isHeader: false, rowHeight: rowHeight)
                         }
                     }
                 }
@@ -209,7 +214,7 @@ struct MarkdownTableView: View {
         Array(table.body.rows)
     }
 
-    private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool) -> some View {
+    private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool, rowHeight: CGFloat) -> some View {
         Text(Self.formattedText(for: cell))
             .font(isHeader ? .headline : .body)
             .fontWeight(isHeader ? .semibold : .regular)
@@ -223,7 +228,7 @@ struct MarkdownTableView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(width: Self.cellWidth, alignment: frameAlignment(for: column))
-            .frame(minHeight: Self.minimumCellHeight, alignment: frameAlignment(for: column))
+            .frame(height: rowHeight, alignment: frameAlignment(for: column))
             .contentShape(Rectangle())
             .clipped()
             .textSelection(.disabled)
@@ -243,6 +248,16 @@ struct MarkdownTableView: View {
     static func formattedText(for cell: Markdown.Table.Cell) -> String {
         // Table.Cell.format() asserts inside swift-markdown 0.7.x. Use inline text only.
         cell.plainText
+    }
+
+    static func rowHeight(for cells: [Markdown.Table.Cell]) -> CGFloat {
+        let hasLongCell = cells
+            .map(formattedText)
+            .contains { text in
+                text.count > longCellCharacterThreshold || text.contains(where: \.isNewline)
+            }
+
+        return hasLongCell ? expandedCellHeight : minimumCellHeight
     }
 
     private func alignment(for column: Int) -> TextAlignment {
