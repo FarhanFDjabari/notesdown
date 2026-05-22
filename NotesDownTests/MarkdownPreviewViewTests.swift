@@ -50,6 +50,8 @@ final class MarkdownPreviewViewTests: XCTestCase {
         XCTAssertTrue(source.contains(".lineLimit(Self.maximumVisibleCellLines)"))
         XCTAssertTrue(source.contains(".truncationMode(.tail)"))
         XCTAssertTrue(source.contains(".clipped()"))
+        XCTAssertTrue(source.contains(".textSelection(.disabled)"))
+        XCTAssertFalse(source.contains(".fixedSize(horizontal: false, vertical: true)"))
     }
 
     private func markdownPreviewViewSource() throws -> String {

@@ -171,8 +171,8 @@ struct MarkdownInlineText: View {
 
 struct MarkdownTableView: View {
     let table: Markdown.Table
-    private static let minimumCellWidth: CGFloat = 120
-    private static let maximumCellWidth: CGFloat = 240
+    private static let cellWidth: CGFloat = 240
+    private static let minimumCellHeight: CGFloat = 48
     private static let maximumVisibleCellLines = 3
 
     var body: some View {
@@ -210,20 +210,23 @@ struct MarkdownTableView: View {
     }
 
     private func tableCell(_ cell: Markdown.Table.Cell, column: Int, isHeader: Bool) -> some View {
-        MarkdownInlineText(markdown: Self.formattedText(for: cell))
+        Text(Self.formattedText(for: cell))
             .font(isHeader ? .headline : .body)
             .fontWeight(isHeader ? .semibold : .regular)
             .lineLimit(Self.maximumVisibleCellLines)
             .truncationMode(.tail)
-            .fixedSize(horizontal: false, vertical: true)
             .multilineTextAlignment(alignment(for: column))
             .frame(
-                minWidth: Self.minimumCellWidth,
-                maxWidth: Self.maximumCellWidth,
+                maxWidth: .infinity,
                 alignment: frameAlignment(for: column)
             )
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
+            .frame(width: Self.cellWidth, alignment: frameAlignment(for: column))
+            .frame(minHeight: Self.minimumCellHeight, alignment: frameAlignment(for: column))
+            .contentShape(Rectangle())
+            .clipped()
+            .textSelection(.disabled)
             .background(isHeader ? Color(NSColor.controlBackgroundColor) : Color.clear)
             .overlay(alignment: .trailing) {
                 Rectangle()
@@ -235,7 +238,6 @@ struct MarkdownTableView: View {
                     .fill(Color.gray.opacity(0.25))
                     .frame(height: 1)
             }
-            .clipped()
     }
 
     static func formattedText(for cell: Markdown.Table.Cell) -> String {
