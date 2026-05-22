@@ -29,4 +29,7 @@ jobs:
           xcodebuild test \
             -project NotesDown.xcodeproj \
             -scheme NotesDown \
-            -destination 'platform=macOS'
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM=
