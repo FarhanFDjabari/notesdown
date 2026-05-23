@@ -105,6 +105,11 @@ struct NotesDownCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: .command)
 
+            Button("New Tab") {
+                openNewTab()
+            }
+            .keyboardShortcut("t", modifiers: .command)
+
             Divider()
 
             Button("Open...") {
@@ -126,6 +131,14 @@ struct NotesDownCommands: Commands {
             }
             .keyboardShortcut("s", modifiers: .command)
             .disabled(documentCommandHandlers == nil)
+        }
+    }
+
+    private func openNewTab() {
+        let handled = NSApp.sendAction(#selector(NSWindow.newWindowForTab(_:)), to: nil, from: nil)
+
+        if !handled {
+            openWindow(id: "main")
         }
     }
 }
