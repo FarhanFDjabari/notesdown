@@ -25,8 +25,9 @@ private struct MarkdownTextView: NSViewRepresentable {
         Coordinator(text: $text)
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
+    func makeNSView(context: Context) -> MarkdownEditorHostView {
+        let hostView = MarkdownEditorHostView()
+        let scrollView = hostView.scrollView
         scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
@@ -35,7 +36,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         scrollView.backgroundColor = .textBackgroundColor
 
         guard let textView = scrollView.documentView as? NSTextView else {
-            return scrollView
+            return hostView
         }
 
         textView.delegate = context.coordinator
@@ -72,11 +73,8 @@ private struct MarkdownTextView: NSViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.applyEditorAttributes()
 
-        let rulerView = LineNumberRulerView(textView: textView)
-        scrollView.verticalRulerView = rulerView
-        scrollView.hasVerticalRuler = true
-        scrollView.rulersVisible = true
-        context.coordinator.rulerView = rulerView
+        hostView.gutterView.textView = textView
+        context.coordinator.gutterView = hostView.gutterView
 
         NotificationCenter.default.addObserver(
             context.coordinator,
@@ -87,10 +85,10 @@ private struct MarkdownTextView: NSViewRepresentable {
         scrollView.contentView.postsBoundsChangedNotifications = true
 
         context.coordinator.updateLineHighlight()
-        return scrollView
+        return hostView
     }
 
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+    func updateNSView(_ hostView: MarkdownEditorHostView, context: Context) {
         context.coordinator.parentText = $text
         guard let textView = context.coordinator.textView else { return }
 
@@ -108,7 +106,7 @@ private struct MarkdownTextView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parentText: Binding<String>
         weak var textView: NSTextView?
-        weak var rulerView: LineNumberRulerView?
+        weak var gutterView: LineNumberGutterView?
         var isUpdatingFromSwiftUI = false
         private var highlightedLineRange: NSRange?
 
@@ -143,7 +141,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         }
 
         @objc func textViewBoundsDidChange(_ notification: Notification) {
-            rulerView?.needsDisplay = true
+            gutterView?.needsDisplay = true
         }
 
         func applyEditorAttributes() {
@@ -165,7 +163,7 @@ private struct MarkdownTextView: NSViewRepresentable {
 
             textView.setSelectedRange(selectedRange.clamped(toLength: textStorage.length))
             updateLineHighlight()
-            rulerView?.needsDisplay = true
+            gutterView?.needsDisplay = true
         }
 
         func updateLineHighlight() {
@@ -189,24 +187,36 @@ private struct MarkdownTextView: NSViewRepresentable {
     }
 }
 
-private final class LineNumberRulerView: NSRulerView {
-    private weak var textView: NSTextView?
-    private let gutterWidth: CGFloat = 48
+private final class MarkdownEditorHostView: NSView {
+    let gutterView = LineNumberGutterView()
+    let scrollView: NSScrollView
 
-    init(textView: NSTextView) {
-        self.textView = textView
-        super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
-        clientView = textView
-        ruleThickness = gutterWidth
+    override init(frame frameRect: NSRect) {
+        scrollView = NSTextView.scrollableTextView()
+        super.init(frame: frameRect)
+        addSubview(gutterView)
+        addSubview(scrollView)
     }
 
     required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func drawHashMarksAndLabels(in rect: NSRect) {
+    override func layout() {
+        super.layout()
+        let gutterWidth = LineNumberGutterView.width
+        gutterView.frame = NSRect(x: 0, y: 0, width: gutterWidth, height: bounds.height)
+        scrollView.frame = NSRect(x: gutterWidth, y: 0, width: max(bounds.width - gutterWidth, 0), height: bounds.height)
+    }
+}
+
+private final class LineNumberGutterView: NSView {
+    static let width: CGFloat = 48
+    weak var textView: NSTextView?
+
+    override func draw(_ dirtyRect: NSRect) {
         NSColor.controlBackgroundColor.setFill()
-        rect.fill()
+        dirtyRect.fill()
 
         guard
             let textView,
@@ -241,7 +251,7 @@ private final class LineNumberRulerView: NSRulerView {
             .paragraphStyle: paragraphStyle
         ]
         let string = "\(lineNumber)" as NSString
-        let drawRect = NSRect(x: 0, y: y + 1, width: gutterWidth - 10, height: 16)
+        let drawRect = NSRect(x: 0, y: y + 1, width: Self.width - 10, height: 16)
         string.draw(in: drawRect, withAttributes: attributes)
     }
 

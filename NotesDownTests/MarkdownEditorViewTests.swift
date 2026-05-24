@@ -29,7 +29,7 @@ final class MarkdownEditorViewTests: XCTestCase {
 
         XCTAssertTrue(source.contains("NSViewRepresentable"))
         XCTAssertTrue(source.contains("NSTextView"))
-        XCTAssertTrue(source.contains("LineNumberRulerView"))
+        XCTAssertTrue(source.contains("LineNumberGutterView"))
         XCTAssertFalse(source.contains("TextEditor(text:"))
     }
 

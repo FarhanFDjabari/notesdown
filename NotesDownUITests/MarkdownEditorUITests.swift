@@ -11,15 +11,18 @@ final class MarkdownEditorUITests: XCTestCase {
 
         let value = editor.value as? String
         XCTAssertTrue(value?.contains("# Welcome to NotesDown") == true)
-        XCTAssertTrue(editorFrameContainsVisibleText(editor.frame), "Editor should draw visible text pixels, not only line numbers.")
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 5), "App window should exist after launch.")
+        XCTAssertTrue(editorPaneContainsVisibleText(window.frame), "Editor pane should draw visible text pixels, not only line numbers.")
     }
 
-    private func editorFrameContainsVisibleText(_ editorFrame: CGRect) -> Bool {
+    private func editorPaneContainsVisibleText(_ windowFrame: CGRect) -> Bool {
         let screenshot = XCUIScreen.main.screenshot()
         guard
             let bitmap = NSBitmapImageRep(data: screenshot.pngRepresentation),
-            editorFrame.width > 160,
-            editorFrame.height > 120
+            windowFrame.width > 420,
+            windowFrame.height > 220
         else {
             return false
         }
@@ -29,10 +32,10 @@ final class MarkdownEditorUITests: XCTestCase {
         let scaleY = CGFloat(bitmap.pixelsHigh) / screenFrame.height
 
         let sampleRect = CGRect(
-            x: editorFrame.minX + 80,
-            y: editorFrame.minY + 40,
-            width: editorFrame.width - 120,
-            height: min(editorFrame.height - 80, 260)
+            x: windowFrame.minX + 90,
+            y: windowFrame.minY + 80,
+            width: max((windowFrame.width / 2) - 140, 80),
+            height: min(windowFrame.height - 140, 320)
         )
 
         var brightPixelCount = 0
