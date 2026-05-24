@@ -34,20 +34,20 @@ private struct MarkdownTextView: NSViewRepresentable {
         scrollView.drawsBackground = true
         scrollView.backgroundColor = .textBackgroundColor
 
-        let contentSize = scrollView.contentSize
+        let initialSize = NSSize(width: 600, height: 400)
         let textStorage = NSTextStorage(string: text)
         let layoutManager = NSLayoutManager()
-        let textContainer = NSTextContainer(containerSize: NSSize(width: contentSize.width, height: CGFloat.greatestFiniteMagnitude))
+        let textContainer = NSTextContainer(containerSize: NSSize(width: initialSize.width, height: CGFloat.greatestFiniteMagnitude))
         textContainer.widthTracksTextView = true
         textContainer.heightTracksTextView = false
 
         layoutManager.addTextContainer(textContainer)
         textStorage.addLayoutManager(layoutManager)
 
-        let textView = HighlightingMarkdownTextView(frame: NSRect(origin: .zero, size: contentSize), textContainer: textContainer)
+        let textView = HighlightingMarkdownTextView(frame: NSRect(origin: .zero, size: initialSize), textContainer: textContainer)
         textView.delegate = context.coordinator
         textView.autoresizingMask = [.width]
-        textView.minSize = NSSize(width: 0, height: contentSize.height)
+        textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -94,6 +94,8 @@ private struct MarkdownTextView: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.parentText = $text
         guard let textView = context.coordinator.textView else { return }
+
+        context.coordinator.updateTextViewLayout(in: scrollView)
 
         if textView.string != text {
             context.coordinator.isUpdatingFromSwiftUI = true
@@ -144,6 +146,16 @@ private struct MarkdownTextView: NSViewRepresentable {
 
         @objc func textViewBoundsDidChange(_ notification: Notification) {
             rulerView?.needsDisplay = true
+        }
+
+        func updateTextViewLayout(in scrollView: NSScrollView) {
+            guard let textView, let textContainer = textView.textContainer else { return }
+
+            let contentWidth = max(scrollView.contentSize.width, 1)
+            textView.frame.size.width = contentWidth
+            textContainer.containerSize = NSSize(width: contentWidth, height: CGFloat.greatestFiniteMagnitude)
+            textContainer.widthTracksTextView = true
+            textView.layoutManager?.ensureLayout(for: textContainer)
         }
 
         func applyEditorAttributes() {
