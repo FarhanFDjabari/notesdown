@@ -26,17 +26,18 @@ private struct MarkdownTextView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = NSTextView.scrollableTextView()
         scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = true
+        scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
         scrollView.backgroundColor = .textBackgroundColor
 
-        let initialSize = NSSize(width: 600, height: 400)
-        let textView = HighlightingMarkdownTextView(frame: NSRect(origin: .zero, size: initialSize))
-        textView.string = text
+        guard let textView = scrollView.documentView as? NSTextView else {
+            return scrollView
+        }
+
         textView.delegate = context.coordinator
         textView.autoresizingMask = [.width]
         textView.minSize = NSSize(width: 0, height: 0)
@@ -45,10 +46,12 @@ private struct MarkdownTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.textContainerInset = NSSize(width: 12, height: 10)
         textView.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        textView.textColor = .textColor
-        textView.insertionPointColor = .textColor
+        textView.textColor = .editorForegroundColor
+        textView.insertionPointColor = .editorForegroundColor
         textView.backgroundColor = .textBackgroundColor
         textView.drawsBackground = true
+        textView.isEditable = true
+        textView.isSelectable = true
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
@@ -61,14 +64,14 @@ private struct MarkdownTextView: NSViewRepresentable {
         textView.smartInsertDeleteEnabled = false
         textView.enabledTextCheckingTypes = 0
         textView.setAccessibilityIdentifier("markdown-editor-text-view")
-        textView.textContainer?.containerSize = NSSize(width: initialSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.string = text
+        textView.textContainer?.containerSize = NSSize(width: 600, height: CGFloat.greatestFiniteMagnitude)
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.heightTracksTextView = false
 
         context.coordinator.textView = textView
         context.coordinator.applyEditorAttributes()
 
-        scrollView.documentView = textView
         let rulerView = LineNumberRulerView(textView: textView)
         scrollView.verticalRulerView = rulerView
         scrollView.hasVerticalRuler = true
@@ -83,15 +86,13 @@ private struct MarkdownTextView: NSViewRepresentable {
         )
         scrollView.contentView.postsBoundsChangedNotifications = true
 
-        textView.updateLineHighlight()
+        context.coordinator.updateLineHighlight()
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.parentText = $text
         guard let textView = context.coordinator.textView else { return }
-
-        context.coordinator.updateTextViewLayout(in: scrollView)
 
         if textView.string != text {
             context.coordinator.isUpdatingFromSwiftUI = true
@@ -106,9 +107,10 @@ private struct MarkdownTextView: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parentText: Binding<String>
-        weak var textView: HighlightingMarkdownTextView?
+        weak var textView: NSTextView?
         weak var rulerView: LineNumberRulerView?
         var isUpdatingFromSwiftUI = false
+        private var highlightedLineRange: NSRange?
 
         init(text: Binding<String>) {
             self.parentText = text
@@ -125,7 +127,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
-            textView?.updateLineHighlight()
+            updateLineHighlight()
         }
 
         func textView(
@@ -144,16 +146,6 @@ private struct MarkdownTextView: NSViewRepresentable {
             rulerView?.needsDisplay = true
         }
 
-        func updateTextViewLayout(in scrollView: NSScrollView) {
-            guard let textView, let textContainer = textView.textContainer else { return }
-
-            let contentWidth = max(scrollView.contentSize.width, 1)
-            textView.frame.size.width = contentWidth
-            textContainer.containerSize = NSSize(width: contentWidth, height: CGFloat.greatestFiniteMagnitude)
-            textContainer.widthTracksTextView = true
-            textView.layoutManager?.ensureLayout(for: textContainer)
-        }
-
         func applyEditorAttributes() {
             guard let textView, let textStorage = textView.textStorage else { return }
             let selectedRange = textView.selectedRange()
@@ -164,7 +156,7 @@ private struct MarkdownTextView: NSViewRepresentable {
             textStorage.beginEditing()
             textStorage.setAttributes([
                 .font: baseFont,
-                .foregroundColor: NSColor.textColor
+                .foregroundColor: NSColor.editorForegroundColor
             ], range: wholeRange)
 
             MarkdownSyntaxHighlighter.apply(to: textStorage, font: baseFont)
@@ -172,42 +164,28 @@ private struct MarkdownTextView: NSViewRepresentable {
             textView.undoManager?.enableUndoRegistration()
 
             textView.setSelectedRange(selectedRange.clamped(toLength: textStorage.length))
-            textView.updateLineHighlight()
+            updateLineHighlight()
             rulerView?.needsDisplay = true
         }
-    }
-}
 
-private final class HighlightingMarkdownTextView: NSTextView {
-    private var highlightedLineRange: NSRange?
+        func updateLineHighlight() {
+            guard let textView, let layoutManager = textView.layoutManager, let textStorage = textView.textStorage else { return }
 
-    override func setSelectedRange(_ charRange: NSRange) {
-        super.setSelectedRange(charRange)
-        updateLineHighlight()
-    }
+            if let highlightedLineRange {
+                layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: highlightedLineRange)
+            }
 
-    override func didChangeText() {
-        super.didChangeText()
-        updateLineHighlight()
-    }
+            let string = textStorage.string as NSString
+            let location = min(textView.selectedRange().location, string.length)
+            let lineRange = string.lineRange(for: NSRange(location: location, length: 0))
+            highlightedLineRange = lineRange
 
-    func updateLineHighlight() {
-        guard let layoutManager, let textStorage else { return }
-
-        if let highlightedLineRange {
-            layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: highlightedLineRange)
+            layoutManager.addTemporaryAttribute(
+                .backgroundColor,
+                value: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.18),
+                forCharacterRange: lineRange
+            )
         }
-
-        let string = textStorage.string as NSString
-        let location = min(selectedRange().location, string.length)
-        let lineRange = string.lineRange(for: NSRange(location: location, length: 0))
-        highlightedLineRange = lineRange
-
-        layoutManager.addTemporaryAttribute(
-            .backgroundColor,
-            value: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.18),
-            forCharacterRange: lineRange
-        )
     }
 }
 
@@ -374,6 +352,12 @@ private extension NSRange {
         }
 
         return NSRange(location: location, length: min(self.length, length - location))
+    }
+}
+
+private extension NSColor {
+    static var editorForegroundColor: NSColor {
+        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .black
     }
 }
 
