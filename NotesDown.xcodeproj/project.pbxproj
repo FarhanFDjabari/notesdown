@@ -27,10 +27,18 @@
 			remoteGlobalIDString = F1000028000000000000001;
 			remoteInfo = NotesDown;
 		};
+		F1000042000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F1000032000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F1000028000000000000001;
+			remoteInfo = NotesDown;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		82AC11722E9A3973002441B9 /* NotesDownTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotesDownTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1000040000000000000001 /* NotesDownUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotesDownUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F1000000000000000000001 /* NotesDown.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotesDown.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F1000002000000000000001 /* NotesDownApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesDownApp.swift; sourceTree = "<group>"; };
 		F1000004000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -47,10 +55,18 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		82AC11732E9A3973002441B9 /* NotesDownTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NotesDownTests; sourceTree = "<group>"; };
+		F1000041000000000000001 /* NotesDownUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NotesDownUITests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		82AC116F2E9A3973002441B9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F1000044000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -73,6 +89,7 @@
 			children = (
 				F1000022000000000000001 /* NotesDown */,
 				82AC11732E9A3973002441B9 /* NotesDownTests */,
+				F1000041000000000000001 /* NotesDownUITests */,
 				F1000023000000000000001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -99,6 +116,7 @@
 			children = (
 				F1000000000000000000001 /* NotesDown.app */,
 				82AC11722E9A3973002441B9 /* NotesDownTests.xctest */,
+				F1000040000000000000001 /* NotesDownUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -162,6 +180,29 @@
 			productReference = 82AC11722E9A3973002441B9 /* NotesDownTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		F1000045000000000000001 /* NotesDownUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F1000048000000000000001 /* Build configuration list for PBXNativeTarget "NotesDownUITests" */;
+			buildPhases = (
+				F1000043000000000000001 /* Sources */,
+				F1000044000000000000001 /* Frameworks */,
+				F1000047000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F1000046000000000000001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F1000041000000000000001 /* NotesDownUITests */,
+			);
+			name = NotesDownUITests;
+			packageProductDependencies = (
+			);
+			productName = NotesDownUITests;
+			productReference = F1000040000000000000001 /* NotesDownUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		F1000028000000000000001 /* NotesDown */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F1000029000000000000001 /* Build configuration list for PBXNativeTarget "NotesDown" */;
@@ -196,6 +237,10 @@
 						CreatedOnToolsVersion = 26.0.1;
 						TestTargetID = F1000028000000000000001;
 					};
+					F1000045000000000000001 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = F1000028000000000000001;
+					};
 					F1000028000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -219,12 +264,20 @@
 			targets = (
 				F1000028000000000000001 /* NotesDown */,
 				82AC11712E9A3973002441B9 /* NotesDownTests */,
+				F1000045000000000000001 /* NotesDownUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		82AC11702E9A3973002441B9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F1000047000000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -243,6 +296,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		82AC116E2E9A3973002441B9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F1000043000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -271,6 +331,11 @@
 			isa = PBXTargetDependency;
 			target = F1000028000000000000001 /* NotesDown */;
 			targetProxy = 82AC11762E9A3973002441B9 /* PBXContainerItemProxy */;
+		};
+		F1000046000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F1000028000000000000001 /* NotesDown */;
+			targetProxy = F1000042000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -324,6 +389,50 @@
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NotesDown.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NotesDown";
 				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		F1000049000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = X7XMQ8S452;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.djabari.NotesDownUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = NotesDown;
+			};
+			name = Debug;
+		};
+		F100004A000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = X7XMQ8S452;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.djabari.NotesDownUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = NotesDown;
 			};
 			name = Release;
 		};
@@ -567,6 +676,15 @@
 			buildConfigurations = (
 				82AC11792E9A3973002441B9 /* Debug */,
 				82AC117A2E9A3973002441B9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F1000048000000000000001 /* Build configuration list for PBXNativeTarget "NotesDownUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F1000049000000000000001 /* Debug */,
+				F100004A000000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

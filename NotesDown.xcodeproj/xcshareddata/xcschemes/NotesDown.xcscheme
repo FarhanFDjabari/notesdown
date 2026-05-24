@@ -41,7 +41,27 @@
                ReferencedContainer = "container:NotesDown.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "F1000045000000000000001"
+               BuildableName = "NotesDownUITests.xctest"
+               BlueprintName = "NotesDownUITests"
+               ReferencedContainer = "container:NotesDown.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "F1000028000000000000001"
+            BuildableName = "NotesDown.app"
+            BlueprintName = "NotesDown"
+            ReferencedContainer = "container:NotesDown.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

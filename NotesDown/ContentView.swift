@@ -17,9 +17,11 @@ struct ContentView: View {
         HSplitView {
             MarkdownEditorView(text: $documentViewModel.markdownText)
                 .frame(minWidth: 300)
+                .accessibilityIdentifier("markdown-editor-pane")
 
             MarkdownPreviewView(markdownText: documentViewModel.markdownText)
                 .frame(minWidth: 300)
+                .accessibilityIdentifier("markdown-preview-pane")
         }
         .navigationTitle(documentViewModel.document.fileName)
         .toolbar {

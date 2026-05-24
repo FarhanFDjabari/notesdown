@@ -35,16 +35,8 @@ private struct MarkdownTextView: NSViewRepresentable {
         scrollView.backgroundColor = .textBackgroundColor
 
         let initialSize = NSSize(width: 600, height: 400)
-        let textStorage = NSTextStorage(string: text)
-        let layoutManager = NSLayoutManager()
-        let textContainer = NSTextContainer(containerSize: NSSize(width: initialSize.width, height: CGFloat.greatestFiniteMagnitude))
-        textContainer.widthTracksTextView = true
-        textContainer.heightTracksTextView = false
-
-        layoutManager.addTextContainer(textContainer)
-        textStorage.addLayoutManager(layoutManager)
-
-        let textView = HighlightingMarkdownTextView(frame: NSRect(origin: .zero, size: initialSize), textContainer: textContainer)
+        let textView = HighlightingMarkdownTextView(frame: NSRect(origin: .zero, size: initialSize))
+        textView.string = text
         textView.delegate = context.coordinator
         textView.autoresizingMask = [.width]
         textView.minSize = NSSize(width: 0, height: 0)
@@ -68,6 +60,10 @@ private struct MarkdownTextView: NSViewRepresentable {
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.smartInsertDeleteEnabled = false
         textView.enabledTextCheckingTypes = 0
+        textView.setAccessibilityIdentifier("markdown-editor-text-view")
+        textView.textContainer?.containerSize = NSSize(width: initialSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
 
         context.coordinator.textView = textView
         context.coordinator.applyEditorAttributes()
