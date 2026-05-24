@@ -5,16 +5,22 @@ import XCTest
 final class DocumentViewModelTests: XCTestCase {
     var sut: DocumentViewModel!
     var mockFileService: MockFileService!
+    var mockUnsavedChangesPrompter: MockUnsavedChangesPrompter!
 
     override func setUp() {
         super.setUp()
         mockFileService = MockFileService()
-        sut = DocumentViewModel(fileService: mockFileService)
+        mockUnsavedChangesPrompter = MockUnsavedChangesPrompter()
+        sut = DocumentViewModel(
+            fileService: mockFileService,
+            unsavedChangesPrompter: mockUnsavedChangesPrompter
+        )
     }
 
     override func tearDown() {
         sut = nil
         mockFileService = nil
+        mockUnsavedChangesPrompter = nil
         super.tearDown()
     }
 
@@ -75,6 +81,60 @@ final class DocumentViewModelTests: XCTestCase {
 
         XCTAssertNotNil(sut.errorMessage, "Should set error message on failure")
         XCTAssertTrue(sut.errorMessage?.contains("Failed to open file") ?? false)
+    }
+
+    func testOpenFileSavesModifiedDocumentBeforeReplacingIt() async {
+        let currentURL = URL(fileURLWithPath: "/tmp/current.md")
+        let openedURL = URL(fileURLWithPath: "/tmp/opened.md")
+        sut.document = MarkdownDocument(content: "# Unsaved", fileURL: currentURL, isModified: true)
+        mockFileService.mockSaveResult = currentURL
+        mockFileService.mockOpenResult = ("# Opened", openedURL)
+        mockUnsavedChangesPrompter.decision = .save
+
+        sut.openFile()
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(mockUnsavedChangesPrompter.promptedFileName, "current.md")
+        XCTAssertEqual(mockFileService.savedContent, "# Unsaved")
+        XCTAssertEqual(mockFileService.savedURL, currentURL)
+        XCTAssertEqual(mockFileService.openFileCallCount, 1)
+        XCTAssertEqual(sut.document.content, "# Opened")
+        XCTAssertEqual(sut.document.fileURL, openedURL)
+        XCTAssertFalse(sut.document.isModified)
+    }
+
+    func testOpenFileDiscardsModifiedDocumentBeforeReplacingIt() async {
+        let openedURL = URL(fileURLWithPath: "/tmp/opened.md")
+        sut.document = MarkdownDocument(content: "# Unsaved", isModified: true)
+        mockFileService.mockOpenResult = ("# Opened", openedURL)
+        mockUnsavedChangesPrompter.decision = .discard
+
+        sut.openFile()
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(mockFileService.saveFileCallCount, 0)
+        XCTAssertEqual(mockFileService.openFileCallCount, 1)
+        XCTAssertEqual(sut.document.content, "# Opened")
+        XCTAssertEqual(sut.document.fileURL, openedURL)
+        XCTAssertFalse(sut.document.isModified)
+    }
+
+    func testOpenFileCancelKeepsModifiedDocument() async {
+        let originalDocument = MarkdownDocument(content: "# Unsaved", isModified: true)
+        sut.document = originalDocument
+        mockFileService.mockOpenResult = ("# Opened", URL(fileURLWithPath: "/tmp/opened.md"))
+        mockUnsavedChangesPrompter.decision = .cancel
+
+        sut.openFile()
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(mockFileService.saveFileCallCount, 0)
+        XCTAssertEqual(mockFileService.openFileCallCount, 0)
+        XCTAssertEqual(sut.document, originalDocument)
+        XCTAssertTrue(sut.document.isModified)
     }
 
     func testChooseFilesForNewWindows() async throws {
@@ -138,8 +198,13 @@ class MockFileService: FileServiceProtocol {
     var mockOpenFilesError: Error?
     var mockSaveResult: URL?
     var mockSaveError: Error?
+    var openFileCallCount = 0
+    var saveFileCallCount = 0
+    var savedContent: String?
+    var savedURL: URL?
 
     func openFile() async throws -> (content: String, url: URL) {
+        openFileCallCount += 1
         if let error = mockOpenError {
             throw error
         }
@@ -160,6 +225,9 @@ class MockFileService: FileServiceProtocol {
     }
 
     func saveFile(content: String, to url: URL?) async throws -> URL {
+        saveFileCallCount += 1
+        savedContent = content
+        savedURL = url
         if let error = mockSaveError {
             throw error
         }
@@ -167,5 +235,15 @@ class MockFileService: FileServiceProtocol {
             throw FileService.FileServiceError.invalidURL
         }
         return result
+    }
+}
+
+class MockUnsavedChangesPrompter: UnsavedChangesPrompting {
+    var decision: UnsavedChangesDecision = .cancel
+    var promptedFileName: String?
+
+    func confirmDestructiveChange(fileName: String) async -> UnsavedChangesDecision {
+        promptedFileName = fileName
+        return decision
     }
 }

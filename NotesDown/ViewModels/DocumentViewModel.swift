@@ -1,5 +1,38 @@
 import Foundation
 import Combine
+import AppKit
+
+enum UnsavedChangesDecision {
+    case save
+    case discard
+    case cancel
+}
+
+@MainActor
+protocol UnsavedChangesPrompting {
+    func confirmDestructiveChange(fileName: String) async -> UnsavedChangesDecision
+}
+
+struct AppKitUnsavedChangesPrompter: UnsavedChangesPrompting {
+    func confirmDestructiveChange(fileName: String) async -> UnsavedChangesDecision {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Do you want to save changes to \(fileName)?"
+        alert.informativeText = "Your changes will be lost if you don't save them."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Don't Save")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            return .save
+        case .alertSecondButtonReturn:
+            return .discard
+        default:
+            return .cancel
+        }
+    }
+}
 
 @MainActor
 class DocumentViewModel: ObservableObject {
@@ -7,6 +40,7 @@ class DocumentViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let fileService: FileServiceProtocol
+    private let unsavedChangesPrompter: UnsavedChangesPrompting
     private var cancellables = Set<AnyCancellable>()
 
     init(document: MarkdownDocument = MarkdownDocument(
@@ -40,9 +74,13 @@ class DocumentViewModel: ObservableObject {
 
         Enjoy writing in markdown!
         """
-    ), fileService: FileServiceProtocol = FileService()) {
+    ),
+    fileService: FileServiceProtocol = FileService(),
+    unsavedChangesPrompter: UnsavedChangesPrompting? = nil
+    ) {
         self.document = document
         self.fileService = fileService
+        self.unsavedChangesPrompter = unsavedChangesPrompter ?? AppKitUnsavedChangesPrompter()
     }
 
     var markdownText: String {
@@ -55,6 +93,8 @@ class DocumentViewModel: ObservableObject {
 
     func openFile() {
         Task {
+            guard await confirmDestructiveChangeAndSaveIfNeeded() else { return }
+
             do {
                 let (content, url) = try await fileService.openFile()
                 document = MarkdownDocument(content: content, fileURL: url, isModified: false)
@@ -73,6 +113,8 @@ class DocumentViewModel: ObservableObject {
 
     func openFile(at url: URL) {
         Task {
+            guard await confirmDestructiveChangeAndSaveIfNeeded() else { return }
+
             do {
                 // Start accessing security-scoped resource
                 let didStartAccessing = url.startAccessingSecurityScopedResource()
@@ -93,16 +135,38 @@ class DocumentViewModel: ObservableObject {
 
     func saveFile() {
         Task {
-            do {
-                let url = try await fileService.saveFile(content: document.content, to: document.fileURL)
-                document.fileURL = url
-                document.isModified = false
-                errorMessage = nil
-            } catch FileService.FileServiceError.userCancelled {
-                // User cancelled, do nothing
-            } catch {
-                errorMessage = "Failed to save file: \(error.localizedDescription)"
-            }
+            await saveCurrentDocument()
+        }
+    }
+
+    @discardableResult
+    func confirmDestructiveChangeAndSaveIfNeeded() async -> Bool {
+        guard document.isModified else { return true }
+
+        switch await unsavedChangesPrompter.confirmDestructiveChange(fileName: document.fileName) {
+        case .save:
+            return await saveCurrentDocument()
+        case .discard:
+            return true
+        case .cancel:
+            return false
+        }
+    }
+
+    @discardableResult
+    private func saveCurrentDocument() async -> Bool {
+        do {
+            let url = try await fileService.saveFile(content: document.content, to: document.fileURL)
+            document.fileURL = url
+            document.isModified = false
+            errorMessage = nil
+            return true
+        } catch FileService.FileServiceError.userCancelled {
+            // User cancelled, do nothing
+            return false
+        } catch {
+            errorMessage = "Failed to save file: \(error.localizedDescription)"
+            return false
         }
     }
 }
