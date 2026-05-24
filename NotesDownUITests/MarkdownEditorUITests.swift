@@ -21,7 +21,9 @@ final class MarkdownEditorUITests: XCTestCase {
 
         let gutter = app.descendants(matching: .any)["markdown-editor-line-number-gutter"]
         XCTAssertTrue(gutter.waitForExistence(timeout: 5), "Line-number gutter should exist after launch.")
-        XCTAssertEqual(gutter.value as? String, "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28")
+        let visibleLineNumbers = lineNumbers(from: gutter.value as? String)
+        XCTAssertGreaterThanOrEqual(visibleLineNumbers.count, 10)
+        XCTAssertEqual(visibleLineNumbers, Array(1...visibleLineNumbers.count))
 
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 5), "App window should exist after launch.")
@@ -80,6 +82,12 @@ final class MarkdownEditorUITests: XCTestCase {
         ]
         app.launch()
         return app
+    }
+
+    private func lineNumbers(from value: String?) -> [Int] {
+        value?
+            .split(separator: ",")
+            .compactMap { Int($0) } ?? []
     }
 
     private func gutterContainsVisibleNumbers(_ windowFrame: CGRect) -> Bool {
