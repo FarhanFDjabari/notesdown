@@ -1,8 +1,84 @@
 import Markdown
+import AppKit
 import XCTest
 @testable import NotesDown
 
 final class MarkdownPreviewViewTests: XCTestCase {
+    func testPreviewDocumentExtractsFootnotesAndRemovesDefinitionsFromMarkdownBody() {
+        let previewDocument = MarkdownPreviewDocument(markdownText: """
+        Paragraph with a footnote.[^note]
+
+        [^note]: Footnote text
+            continued text
+        """)
+
+        XCTAssertEqual(previewDocument.footnotes, [
+            MarkdownPreviewDocument.Footnote(id: "note", number: 1, text: "Footnote text continued text")
+        ])
+        XCTAssertEqual(previewDocument.footnoteReferences["note"], 1)
+        XCTAssertFalse(previewDocument.document.format().contains("[^note]:"))
+    }
+
+    func testTaskListItemsExposeCheckboxState() throws {
+        let document = Document(parsing: """
+        - [ ] Open task
+        - [x] Closed task
+        """)
+
+        let list = try XCTUnwrap(Array(document.children).first as? UnorderedList)
+        let items = Array(list.listItems)
+
+        XCTAssertEqual(items.first?.checkbox, .unchecked)
+        XCTAssertEqual(items.last?.checkbox, .checked)
+    }
+
+    func testInlineRendererCreatesImageSegments() throws {
+        let document = Document(parsing: "![Alt text](/tmp/example.png)")
+        let paragraph = try XCTUnwrap(Array(document.children).first as? Paragraph)
+
+        let segments = MarkdownInlineRenderer.segments(in: paragraph, footnoteReferences: [:])
+
+        guard case let .image(image) = try XCTUnwrap(segments.first) else {
+            return XCTFail("Expected an image segment")
+        }
+        XCTAssertEqual(image.source, "/tmp/example.png")
+        XCTAssertEqual(image.altText, "Alt text")
+    }
+
+    func testInlineRendererAppliesStrikethroughAttribute() throws {
+        let document = Document(parsing: "This is ~~removed~~ text")
+        let paragraph = try XCTUnwrap(Array(document.children).first as? Paragraph)
+
+        let rendered = MarkdownInlineRenderer.attributedString(in: paragraph, footnoteReferences: [:])
+        let removedRange = (rendered.string as NSString).range(of: "removed")
+
+        XCTAssertNotEqual(removedRange.location, NSNotFound)
+        XCTAssertEqual(
+            rendered.attribute(.strikethroughStyle, at: removedRange.location, effectiveRange: nil) as? Int,
+            NSUnderlineStyle.single.rawValue
+        )
+    }
+
+    func testInlineRendererSuperscriptsFootnoteReferences() throws {
+        let document = Document(parsing: "Text with note.[^a]")
+        let paragraph = try XCTUnwrap(Array(document.children).first as? Paragraph)
+
+        let rendered = MarkdownInlineRenderer.attributedString(in: paragraph, footnoteReferences: ["a": 1])
+        let referenceRange = (rendered.string as NSString).range(of: "1")
+
+        XCTAssertNotEqual(referenceRange.location, NSNotFound)
+        XCTAssertEqual(rendered.attribute(.baselineOffset, at: referenceRange.location, effectiveRange: nil) as? Int, 5)
+    }
+
+    func testSyntaxHighlightedCodeAppliesTokenColors() {
+        let rendered = SyntaxHighlightedCode.nsAttributedString(for: "let name = \"NotesDown\"", language: "swift")
+        let keywordRange = (rendered.string as NSString).range(of: "let")
+        let stringRange = (rendered.string as NSString).range(of: "\"NotesDown\"")
+
+        XCTAssertEqual(rendered.attribute(.foregroundColor, at: keywordRange.location, effectiveRange: nil) as? NSColor, NSColor.systemPurple)
+        XCTAssertEqual(rendered.attribute(.foregroundColor, at: stringRange.location, effectiveRange: nil) as? NSColor, NSColor.systemRed)
+    }
+
     func testTableCellTextDoesNotFormatTableCells() throws {
         let document = Document(parsing: """
         | Name | Notes |

@@ -30,6 +30,38 @@ final class MarkdownEditorUITests: XCTestCase {
         XCTAssertTrue(gutterContainsVisibleNumbers(window.frame), "Line-number gutter should draw visible numbers.")
     }
 
+    func testPreviewRendersExtendedMarkdownFeaturesFromEditorInput() {
+        let app = launchFreshApp()
+
+        let editor = app.textViews["markdown-editor-text-view"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5), "Editor text view should exist after launch.")
+
+        replaceEditorText("""
+        # Preview fidelity
+
+        - [ ] Incomplete task
+        - [x] Complete task
+
+        This has ~~struck text~~ and a footnote.[^first]
+
+        ![Missing image](missing-preview-image.png)
+
+        ```swift
+        let name = "NotesDown"
+        ```
+
+        [^first]: Footnote content
+        """, in: editor)
+
+        let preview = app.descendants(matching: .any)["markdown-preview-content"].firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 5), "Preview content should exist after editing.")
+        let value = preview.value as? String
+        XCTAssertTrue(value?.contains("task-list") == true)
+        XCTAssertTrue(value?.contains("image") == true)
+        XCTAssertTrue(value?.contains("code-block") == true)
+        XCTAssertTrue(value?.contains("footnotes") == true)
+    }
+
     private func editorPaneContainsVisibleText(_ windowFrame: CGRect) -> Bool {
         let screenshot = XCUIScreen.main.screenshot()
         guard
@@ -82,6 +114,16 @@ final class MarkdownEditorUITests: XCTestCase {
         ]
         app.launch()
         return app
+    }
+
+    private func replaceEditorText(_ text: String, in editor: XCUIElement) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        editor.click()
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeKey("v", modifierFlags: .command)
     }
 
     private func lineNumbers(from value: String?) -> [Int] {
