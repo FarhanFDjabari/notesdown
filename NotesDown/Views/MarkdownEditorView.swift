@@ -33,12 +33,13 @@ private struct MarkdownTextView: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
-        scrollView.backgroundColor = .textBackgroundColor
 
         guard let textView = scrollView.documentView as? NSTextView else {
             return hostView
         }
 
+        let colors = MarkdownEditorColors(appearance: textView.effectiveAppearance)
+        scrollView.backgroundColor = colors.background
         textView.delegate = context.coordinator
         textView.autoresizingMask = [.width]
         textView.minSize = NSSize(width: 0, height: 0)
@@ -47,9 +48,9 @@ private struct MarkdownTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.textContainerInset = NSSize(width: 12, height: 10)
         textView.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        textView.textColor = .editorForegroundColor
-        textView.insertionPointColor = .editorForegroundColor
-        textView.backgroundColor = .textBackgroundColor
+        textView.textColor = colors.text
+        textView.insertionPointColor = colors.text
+        textView.backgroundColor = colors.background
         textView.drawsBackground = true
         textView.isEditable = true
         textView.isSelectable = true
@@ -144,8 +145,23 @@ private struct MarkdownTextView: NSViewRepresentable {
             gutterView?.needsDisplay = true
         }
 
+        func applyEditorColors() -> MarkdownEditorColors {
+            guard let textView else {
+                return MarkdownEditorColors(appearance: NSApp.effectiveAppearance)
+            }
+
+            let colors = MarkdownEditorColors(appearance: textView.effectiveAppearance)
+            textView.textColor = colors.text
+            textView.insertionPointColor = colors.text
+            textView.backgroundColor = colors.background
+            textView.enclosingScrollView?.backgroundColor = colors.background
+            gutterView?.colors = colors
+            return colors
+        }
+
         func applyEditorAttributes() {
             guard let textView, let textStorage = textView.textStorage else { return }
+            let colors = applyEditorColors()
             let selectedRange = textView.selectedRange()
             let baseFont = textView.font ?? .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             let wholeRange = NSRange(location: 0, length: textStorage.length)
@@ -154,10 +170,10 @@ private struct MarkdownTextView: NSViewRepresentable {
             textStorage.beginEditing()
             textStorage.setAttributes([
                 .font: baseFont,
-                .foregroundColor: NSColor.editorForegroundColor
+                .foregroundColor: colors.text
             ], range: wholeRange)
 
-            MarkdownSyntaxHighlighter.apply(to: textStorage, font: baseFont)
+            MarkdownSyntaxHighlighter.apply(to: textStorage, font: baseFont, colors: colors.syntax)
             textStorage.endEditing()
             textView.undoManager?.enableUndoRegistration()
 
@@ -180,7 +196,7 @@ private struct MarkdownTextView: NSViewRepresentable {
 
             layoutManager.addTemporaryAttribute(
                 .backgroundColor,
-                value: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.18),
+                value: MarkdownEditorColors(appearance: textView.effectiveAppearance).currentLineHighlight,
                 forCharacterRange: lineRange
             )
         }
@@ -213,31 +229,54 @@ private final class MarkdownEditorHostView: NSView {
 private final class LineNumberGutterView: NSView {
     static let width: CGFloat = 48
     weak var textView: NSTextView?
+    var colors = MarkdownEditorColors(appearance: NSApp.effectiveAppearance) {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setAccessibilityElement(true)
+        setAccessibilityIdentifier("markdown-editor-line-number-gutter")
+        setAccessibilityLabel("Line numbers")
+        setAccessibilityRole(.group)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setAccessibilityElement(true)
+        setAccessibilityIdentifier("markdown-editor-line-number-gutter")
+        setAccessibilityLabel("Line numbers")
+        setAccessibilityRole(.group)
+    }
+
+    override func accessibilityValue() -> Any? {
+        visibleLineNumbers().map(String.init).joined(separator: ",")
+    }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.controlBackgroundColor.setFill()
+        colors.gutterBackground.setFill()
         dirtyRect.fill()
 
-        guard
-            let textView,
-            let layoutManager = textView.layoutManager,
-            let textContainer = textView.textContainer
-        else { return }
-
-        let visibleRect = textView.visibleRect
-        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
-        let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-        let lineRanges = lineRanges(in: textView.string as NSString, intersecting: characterRange)
-
-        for (lineNumber, lineRange) in lineRanges {
+        for (lineNumber, lineRange) in visibleLineRanges() {
             if lineRange.length == 0 {
-                drawLineNumber(lineNumber, y: textView.textContainerInset.height)
+                drawLineNumber(lineNumber, y: textView?.textContainerInset.height ?? 0)
                 continue
             }
 
+            guard
+                let textView,
+                let layoutManager = textView.layoutManager
+            else { continue }
+
             let glyphIndex = layoutManager.glyphIndexForCharacter(at: lineRange.location)
             let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
-            let y = lineRect.minY + textView.textContainerOrigin.y - visibleRect.minY
+            let y = lineRect.minY + textView.textContainerOrigin.y - textView.visibleRect.minY
             drawLineNumber(lineNumber, y: y)
         }
     }
@@ -247,12 +286,29 @@ private final class LineNumberGutterView: NSView {
         paragraphStyle.alignment = .right
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
-            .foregroundColor: NSColor.secondaryLabelColor,
+            .foregroundColor: colors.gutterText,
             .paragraphStyle: paragraphStyle
         ]
         let string = "\(lineNumber)" as NSString
         let drawRect = NSRect(x: 0, y: y + 1, width: Self.width - 10, height: 16)
         string.draw(in: drawRect, withAttributes: attributes)
+    }
+
+    private func visibleLineNumbers() -> [Int] {
+        visibleLineRanges().map(\.0)
+    }
+
+    private func visibleLineRanges() -> [(Int, NSRange)] {
+        guard
+            let textView,
+            let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer
+        else { return [] }
+
+        let visibleRect = textView.visibleRect
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        return lineRanges(in: textView.string as NSString, intersecting: characterRange)
     }
 
     private func lineRanges(in string: NSString, intersecting range: NSRange) -> [(Int, NSRange)] {
@@ -314,22 +370,11 @@ struct MarkdownSyntaxHighlighter {
         }
     }
 
-    static func apply(to textStorage: NSTextStorage, font: NSFont) {
-        let colors: [TokenKind: NSColor] = [
-            .heading: .systemBlue,
-            .emphasis: .systemPink,
-            .strong: .systemOrange,
-            .inlineCode: .systemPurple,
-            .link: .systemTeal,
-            .quote: .systemGreen,
-            .listMarker: .systemBrown,
-            .fencedCodeDelimiter: .secondaryLabelColor
-        ]
-
+    static func apply(to textStorage: NSTextStorage, font: NSFont, colors: SyntaxColors) {
         for token in tokens(in: textStorage.string) {
             guard token.range.location != NSNotFound, NSMaxRange(token.range) <= textStorage.length else { continue }
             var attributes: [NSAttributedString.Key: Any] = [
-                .foregroundColor: colors[token.kind] ?? NSColor.textColor
+                .foregroundColor: colors.color(for: token.kind)
             ]
 
             switch token.kind {
@@ -365,9 +410,82 @@ private extension NSRange {
     }
 }
 
-private extension NSColor {
-    static var editorForegroundColor: NSColor {
-        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .black
+struct SyntaxColors {
+    let heading: NSColor
+    let emphasis: NSColor
+    let strong: NSColor
+    let inlineCode: NSColor
+    let link: NSColor
+    let quote: NSColor
+    let listMarker: NSColor
+    let fencedCodeDelimiter: NSColor
+
+    func color(for kind: MarkdownSyntaxHighlighter.TokenKind) -> NSColor {
+        switch kind {
+        case .heading:
+            return heading
+        case .emphasis:
+            return emphasis
+        case .strong:
+            return strong
+        case .inlineCode:
+            return inlineCode
+        case .link:
+            return link
+        case .quote:
+            return quote
+        case .listMarker:
+            return listMarker
+        case .fencedCodeDelimiter:
+            return fencedCodeDelimiter
+        }
+    }
+}
+
+struct MarkdownEditorColors {
+    let background: NSColor
+    let text: NSColor
+    let gutterBackground: NSColor
+    let gutterText: NSColor
+    let currentLineHighlight: NSColor
+    let syntax: SyntaxColors
+
+    init(appearance: NSAppearance) {
+        let isDarkMode = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+        if isDarkMode {
+            background = NSColor(calibratedRed: 0.10, green: 0.10, blue: 0.11, alpha: 1)
+            text = NSColor(calibratedWhite: 0.92, alpha: 1)
+            gutterBackground = NSColor(calibratedRed: 0.09, green: 0.09, blue: 0.10, alpha: 1)
+            gutterText = NSColor(calibratedWhite: 0.62, alpha: 1)
+            currentLineHighlight = NSColor(calibratedWhite: 1, alpha: 0.08)
+            syntax = SyntaxColors(
+                heading: NSColor(calibratedRed: 0.48, green: 0.70, blue: 1.00, alpha: 1),
+                emphasis: NSColor(calibratedRed: 1.00, green: 0.56, blue: 0.78, alpha: 1),
+                strong: NSColor(calibratedRed: 1.00, green: 0.70, blue: 0.36, alpha: 1),
+                inlineCode: NSColor(calibratedRed: 0.78, green: 0.62, blue: 1.00, alpha: 1),
+                link: NSColor(calibratedRed: 0.35, green: 0.82, blue: 0.88, alpha: 1),
+                quote: NSColor(calibratedRed: 0.48, green: 0.84, blue: 0.52, alpha: 1),
+                listMarker: NSColor(calibratedRed: 0.82, green: 0.66, blue: 0.48, alpha: 1),
+                fencedCodeDelimiter: NSColor(calibratedWhite: 0.68, alpha: 1)
+            )
+        } else {
+            background = NSColor(calibratedWhite: 1, alpha: 1)
+            text = NSColor(calibratedWhite: 0.08, alpha: 1)
+            gutterBackground = NSColor(calibratedWhite: 0.95, alpha: 1)
+            gutterText = NSColor(calibratedWhite: 0.42, alpha: 1)
+            currentLineHighlight = NSColor(calibratedRed: 0.18, green: 0.43, blue: 0.86, alpha: 0.10)
+            syntax = SyntaxColors(
+                heading: NSColor(calibratedRed: 0.03, green: 0.32, blue: 0.72, alpha: 1),
+                emphasis: NSColor(calibratedRed: 0.68, green: 0.12, blue: 0.42, alpha: 1),
+                strong: NSColor(calibratedRed: 0.70, green: 0.34, blue: 0.00, alpha: 1),
+                inlineCode: NSColor(calibratedRed: 0.38, green: 0.18, blue: 0.70, alpha: 1),
+                link: NSColor(calibratedRed: 0.00, green: 0.42, blue: 0.48, alpha: 1),
+                quote: NSColor(calibratedRed: 0.14, green: 0.50, blue: 0.20, alpha: 1),
+                listMarker: NSColor(calibratedRed: 0.48, green: 0.32, blue: 0.12, alpha: 1),
+                fencedCodeDelimiter: NSColor(calibratedWhite: 0.46, alpha: 1)
+            )
+        }
     }
 }
 

@@ -3,8 +3,7 @@ import XCTest
 
 final class MarkdownEditorUITests: XCTestCase {
     func testEditorPaneDrawsMarkdownText() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchFreshApp()
 
         let editor = app.textViews["markdown-editor-text-view"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5), "Editor text view should exist after launch.")
@@ -15,6 +14,18 @@ final class MarkdownEditorUITests: XCTestCase {
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 5), "App window should exist after launch.")
         XCTAssertTrue(editorPaneContainsVisibleText(window.frame), "Editor pane should draw visible text pixels, not only line numbers.")
+    }
+
+    func testLineNumberGutterDrawsOrderedVisibleNumbers() {
+        let app = launchFreshApp()
+
+        let gutter = app.descendants(matching: .any)["markdown-editor-line-number-gutter"]
+        XCTAssertTrue(gutter.waitForExistence(timeout: 5), "Line-number gutter should exist after launch.")
+        XCTAssertEqual(gutter.value as? String, "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28")
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 5), "App window should exist after launch.")
+        XCTAssertTrue(gutterContainsVisibleNumbers(window.frame), "Line-number gutter should draw visible numbers.")
     }
 
     private func editorPaneContainsVisibleText(_ windowFrame: CGRect) -> Bool {
@@ -57,5 +68,59 @@ final class MarkdownEditorUITests: XCTestCase {
         }
 
         return sampledPixelCount > 0 && brightPixelCount > 20
+    }
+
+    private func launchFreshApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-ApplePersistenceIgnoreState",
+            "YES",
+            "-isDarkMode",
+            "YES"
+        ]
+        app.launch()
+        return app
+    }
+
+    private func gutterContainsVisibleNumbers(_ windowFrame: CGRect) -> Bool {
+        let screenshot = XCUIScreen.main.screenshot()
+        guard
+            let bitmap = NSBitmapImageRep(data: screenshot.pngRepresentation),
+            windowFrame.width > 420,
+            windowFrame.height > 220
+        else {
+            return false
+        }
+
+        guard let screenFrame = NSScreen.main?.frame else { return false }
+        let scaleX = CGFloat(bitmap.pixelsWide) / screenFrame.width
+        let scaleY = CGFloat(bitmap.pixelsHigh) / screenFrame.height
+
+        let sampleRect = CGRect(
+            x: windowFrame.minX + 18,
+            y: windowFrame.minY + 90,
+            width: 40,
+            height: min(windowFrame.height - 150, 420)
+        )
+
+        var visibleNumberPixelCount = 0
+        var sampledPixelCount = 0
+        let minX = max(Int(sampleRect.minX * scaleX), 0)
+        let maxX = min(Int(sampleRect.maxX * scaleX), bitmap.pixelsWide - 1)
+        let minY = max(Int(sampleRect.minY * scaleY), 0)
+        let maxY = min(Int(sampleRect.maxY * scaleY), bitmap.pixelsHigh - 1)
+
+        for y in stride(from: minY, through: maxY, by: 3) {
+            for x in stride(from: minX, through: maxX, by: 3) {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                sampledPixelCount += 1
+
+                if color.redComponent > 0.35 || color.greenComponent > 0.35 || color.blueComponent > 0.35 {
+                    visibleNumberPixelCount += 1
+                }
+            }
+        }
+
+        return sampledPixelCount > 0 && visibleNumberPixelCount > 12
     }
 }
