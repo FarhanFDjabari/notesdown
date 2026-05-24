@@ -135,11 +135,7 @@ struct NotesDownCommands: Commands {
     }
 
     private func openNewTab() {
-        let handled = NSApp.sendAction(#selector(NSWindow.newWindowForTab(_:)), to: nil, from: nil)
-
-        if !handled {
-            openWindow(id: "main")
-        }
+        NSApp.keyWindow?.newWindowForTab(nil)
     }
 }
 
