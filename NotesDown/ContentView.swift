@@ -84,6 +84,7 @@ struct ContentView: View {
                 Text(errorMessage)
             }
         }
+        .background(WindowCloseGuard(documentViewModel: documentViewModel))
     }
 
     private func openInitialFileIfNeeded() {
@@ -115,4 +116,71 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environmentObject(ThemeManager())
+}
+
+private struct WindowCloseGuard: NSViewRepresentable {
+    @ObservedObject var documentViewModel: DocumentViewModel
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(documentViewModel: documentViewModel)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.documentViewModel = documentViewModel
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: nsView.window)
+        }
+    }
+
+    final class Coordinator: NSObject, NSWindowDelegate {
+        var documentViewModel: DocumentViewModel
+
+        private weak var window: NSWindow?
+        private weak var previousDelegate: NSWindowDelegate?
+        private var isClosingAfterConfirmation = false
+
+        init(documentViewModel: DocumentViewModel) {
+            self.documentViewModel = documentViewModel
+        }
+
+        func attach(to window: NSWindow?) {
+            guard let window, self.window !== window else { return }
+
+            if self.window?.delegate === self {
+                self.window?.delegate = previousDelegate
+            }
+
+            self.window = window
+            previousDelegate = window.delegate
+            window.delegate = self
+        }
+
+        func windowShouldClose(_ sender: NSWindow) -> Bool {
+            if isClosingAfterConfirmation || !documentViewModel.document.isModified {
+                return previousDelegate?.windowShouldClose?(sender) ?? true
+            }
+
+            Task { @MainActor in
+                guard await documentViewModel.confirmDestructiveChangeAndSaveIfNeeded() else { return }
+
+                isClosingAfterConfirmation = true
+                sender.performClose(nil)
+                isClosingAfterConfirmation = false
+            }
+
+            return false
+        }
+
+        func windowWillClose(_ notification: Notification) {
+            previousDelegate?.windowWillClose?(notification)
+        }
+    }
 }
