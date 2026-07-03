@@ -15,9 +15,17 @@ struct NotesDownApp: App {
         }
         .windowResizability(.contentSize)
         .commands {
-            NotesDownCommands()
+            NotesDownCommands(windowManager: appDelegate.windowManager)
         }
     }
+}
+
+/// A unique, non-file URL used to open an empty window. Keeping the scene keyed
+/// on `URL?` lets SwiftUI create the launch window on a document open, while the
+/// unique value makes `openWindow(value:)` spawn a new window every time
+/// (`nil` would be de-duplicated, capping tabs/windows).
+func emptyWindowURL() -> URL {
+    URL(string: "notesdown://new/\(UUID().uuidString)")!
 }
 
 /// Routes open-document requests to windows.
@@ -42,15 +50,29 @@ final class WindowManager: ObservableObject {
     private var pending: [URL] = []
     private var preExistingWelcomeIDs: Set<ObjectIdentifier> = []
     private var consumedIDs: Set<ObjectIdentifier> = []
+    private weak var pendingTabHost: NSWindow?
 
     func registerWindow(_ window: NSWindow, isPristine: @escaping () -> Bool, load: @escaping (URL) -> Void) {
         let id = ObjectIdentifier(window)
         windows[id] = WindowInfo(window: window, isPristine: isPristine, load: load)
+
+        if let host = pendingTabHost, host !== window {
+            pendingTabHost = nil
+            host.addTabbedWindow(window, ordered: .above)
+            window.makeKeyAndOrderFront(nil)
+        }
+
         consume(into: id)
     }
 
     func unregisterWindow(_ window: NSWindow) {
         windows.removeValue(forKey: ObjectIdentifier(window))
+    }
+
+    /// Tab the next window that opens into `host`. Call immediately before
+    /// asking SwiftUI to open a new window.
+    func addNextWindowAsTab(to host: NSWindow?) {
+        pendingTabHost = host
     }
 
     func open(_ urls: [URL]) {
@@ -133,18 +155,21 @@ extension Notification.Name {
 }
 
 struct NotesDownCommands: Commands {
+    let windowManager: WindowManager
+
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.documentCommandHandlers) private var documentCommandHandlers
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Window") {
-                openWindow(value: nil as URL?)
+                openWindow(value: emptyWindowURL() as URL?)
             }
             .keyboardShortcut("n", modifiers: .command)
 
             Button("New Tab") {
-                openNewTab()
+                windowManager.addNextWindowAsTab(to: NSApp.keyWindow)
+                openWindow(value: emptyWindowURL() as URL?)
             }
             .keyboardShortcut("t", modifiers: .command)
 
@@ -170,10 +195,6 @@ struct NotesDownCommands: Commands {
             .keyboardShortcut("s", modifiers: .command)
             .disabled(documentCommandHandlers == nil)
         }
-    }
-
-    private func openNewTab() {
-        NSApp.keyWindow?.newWindowForTab(nil)
     }
 }
 

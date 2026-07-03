@@ -7,22 +7,23 @@ final class ThemeManagerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.removeObject(forKey: "isDarkMode")
+        UserDefaults.standard.removeObject(forKey: "themePreference")
         sut = ThemeManager()
     }
 
     override func tearDown() {
         sut = nil
-        UserDefaults.standard.removeObject(forKey: "isDarkMode")
+        UserDefaults.standard.removeObject(forKey: "themePreference")
         super.tearDown()
     }
 
-    func testInitialState() {
-        XCTAssertFalse(sut.isDarkMode, "Should start in light mode")
-        XCTAssertEqual(sut.colorScheme, .light, "Color scheme should be light")
+    func testInitialStateFollowsSystem() {
+        XCTAssertEqual(sut.preference, .system, "Should default to following the system appearance")
+        XCTAssertNil(sut.colorScheme, "Following the system means no explicit color scheme")
     }
 
     func testToggleTheme() {
+        sut.preference = .light
         XCTAssertFalse(sut.isDarkMode)
 
         sut.toggleTheme()
@@ -35,10 +36,19 @@ final class ThemeManagerTests: XCTestCase {
     }
 
     func testColorSchemeMapping() {
-        sut.isDarkMode = false
+        sut.preference = .system
+        XCTAssertNil(sut.colorScheme)
+
+        sut.preference = .light
         XCTAssertEqual(sut.colorScheme, .light)
 
-        sut.isDarkMode = true
+        sut.preference = .dark
         XCTAssertEqual(sut.colorScheme, .dark)
+    }
+
+    func testPreferencePersists() {
+        sut.preference = .dark
+        let reloaded = ThemeManager()
+        XCTAssertEqual(reloaded.preference, .dark, "Preference should persist across launches")
     }
 }

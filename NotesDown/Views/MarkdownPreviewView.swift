@@ -5,7 +5,9 @@ import AppKit
 
 struct MarkdownPreviewView: View {
     let markdownText: String
+    @ObservedObject var scrollSync: ScrollSyncController
     @Environment(\.colorScheme) var colorScheme
+    @State private var scrollPosition = ScrollPosition(edge: .top)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -24,9 +26,33 @@ struct MarkdownPreviewView: View {
                         .accessibilityIdentifier("markdown-preview-content")
                 }
             }
+            .scrollPosition($scrollPosition)
+            .onScrollGeometryChange(for: PreviewScrollGeometry.self) { geometry in
+                PreviewScrollGeometry(
+                    offsetY: geometry.contentOffset.y,
+                    contentHeight: geometry.contentSize.height,
+                    containerHeight: geometry.containerSize.height
+                )
+            } action: { _, geometry in
+                scrollSync.previewGeometryChanged(
+                    offsetY: geometry.offsetY,
+                    contentHeight: geometry.contentHeight,
+                    containerHeight: geometry.containerHeight
+                )
+            }
+            .onChange(of: scrollSync.previewTarget) { _, target in
+                guard let target else { return }
+                scrollPosition.scrollTo(y: target.y)
+            }
             .background(Color(NSColor.textBackgroundColor))
         }
     }
+}
+
+private struct PreviewScrollGeometry: Equatable {
+    let offsetY: CGFloat
+    let contentHeight: CGFloat
+    let containerHeight: CGFloat
 }
 
 struct MarkdownContentView: View {
@@ -951,6 +977,6 @@ private extension URL {
     This version uses swift-markdown for better parsing!
 
     [^note]: Footnotes render at the bottom of the preview.
-    """)
+    """, scrollSync: ScrollSyncController())
         .frame(width: 600, height: 800)
 }

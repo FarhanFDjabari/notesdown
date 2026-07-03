@@ -109,8 +109,8 @@ final class MarkdownEditorUITests: XCTestCase {
         app.launchArguments = [
             "-ApplePersistenceIgnoreState",
             "YES",
-            "-isDarkMode",
-            "YES"
+            "-themePreference",
+            "dark"
         ]
         app.launch()
         return app
