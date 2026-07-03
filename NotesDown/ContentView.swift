@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    let initialFileURL: URL?
+    let fileURL: URL?
 
     @StateObject private var documentViewModel = DocumentViewModel()
     @EnvironmentObject var themeManager: ThemeManager
@@ -9,8 +9,8 @@ struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var didOpenInitialFile = false
 
-    init(initialFileURL: URL? = nil) {
-        self.initialFileURL = initialFileURL
+    init(fileURL: URL? = nil) {
+        self.fileURL = fileURL
     }
 
     var body: some View {
@@ -71,11 +71,10 @@ struct ContentView: View {
             }
         ))
         .onAppear {
-            openInitialFileIfNeeded()
-            openFilesInNewWindows(windowManager.consumeFilesToOpenInNewWindows())
-        }
-        .onChange(of: windowManager.filesToOpenInNewWindows) { _, _ in
-            openFilesInNewWindows(windowManager.consumeFilesToOpenInNewWindows())
+            if !didOpenInitialFile, let fileURL {
+                didOpenInitialFile = true
+                documentViewModel.openFile(at: fileURL)
+            }
         }
         .alert("Error", isPresented: .constant(documentViewModel.errorMessage != nil)) {
             Button("OK") {
@@ -86,26 +85,21 @@ struct ContentView: View {
                 Text(errorMessage)
             }
         }
-        .background(WindowCloseGuard(documentViewModel: documentViewModel))
-    }
-
-    private func openInitialFileIfNeeded() {
-        guard !didOpenInitialFile, let initialFileURL else { return }
-        didOpenInitialFile = true
-        documentViewModel.openFile(at: initialFileURL)
-    }
-
-    private func openFilesInNewWindows(_ urls: [URL]) {
-        for url in urls {
-            openWindow(value: url)
-        }
+        .background(
+            WindowCloseGuard(
+                documentViewModel: documentViewModel,
+                windowManager: windowManager
+            )
+        )
     }
 
     private func chooseFilesForNewWindows() {
         Task {
             do {
                 let urls = try await documentViewModel.chooseFilesForNewWindows()
-                openFilesInNewWindows(urls)
+                for url in urls {
+                    openWindow(value: url as URL?)
+                }
             } catch FileService.FileServiceError.userCancelled {
                 // User cancelled, do nothing
             } catch {
@@ -122,9 +116,10 @@ struct ContentView: View {
 
 private struct WindowCloseGuard: NSViewRepresentable {
     @ObservedObject var documentViewModel: DocumentViewModel
+    let windowManager: WindowManager
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(documentViewModel: documentViewModel)
+        Coordinator(documentViewModel: documentViewModel, windowManager: windowManager)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -142,27 +137,48 @@ private struct WindowCloseGuard: NSViewRepresentable {
         }
     }
 
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    @MainActor
     final class Coordinator: NSObject, NSWindowDelegate {
         var documentViewModel: DocumentViewModel
+        private let windowManager: WindowManager
 
         private weak var window: NSWindow?
         private weak var previousDelegate: NSWindowDelegate?
         private var isClosingAfterConfirmation = false
 
-        init(documentViewModel: DocumentViewModel) {
+        init(documentViewModel: DocumentViewModel, windowManager: WindowManager) {
             self.documentViewModel = documentViewModel
+            self.windowManager = windowManager
         }
 
         func attach(to window: NSWindow?) {
             guard let window, self.window !== window else { return }
 
-            if self.window?.delegate === self {
-                self.window?.delegate = previousDelegate
-            }
+            detach()
 
             self.window = window
             previousDelegate = window.delegate
             window.delegate = self
+
+            let documentViewModel = documentViewModel
+            windowManager.registerWindow(
+                window,
+                isPristine: { documentViewModel.document.isPristine },
+                load: { url in documentViewModel.openFile(at: url) }
+            )
+        }
+
+        func detach() {
+            guard let window else { return }
+            windowManager.unregisterWindow(window)
+            if window.delegate === self {
+                window.delegate = previousDelegate
+            }
+            self.window = nil
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -182,6 +198,9 @@ private struct WindowCloseGuard: NSViewRepresentable {
         }
 
         func windowWillClose(_ notification: Notification) {
+            if let window {
+                windowManager.unregisterWindow(window)
+            }
             previousDelegate?.windowWillClose?(notification)
         }
     }
