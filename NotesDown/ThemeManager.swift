@@ -1,21 +1,48 @@
+import AppKit
 import SwiftUI
 
+enum ThemePreference: String {
+    case system
+    case light
+    case dark
+}
+
 class ThemeManager: ObservableObject {
-    @Published var isDarkMode: Bool {
+    @Published var preference: ThemePreference {
         didSet {
-            UserDefaults.standard.set(isDarkMode, forKey: "isDarkMode")
+            UserDefaults.standard.set(preference.rawValue, forKey: "themePreference")
         }
     }
 
+    /// `nil` follows the system appearance; an explicit choice overrides it.
     var colorScheme: ColorScheme? {
-        return isDarkMode ? .dark : .light
+        switch preference {
+        case .system:
+            return nil
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        }
+    }
+
+    var isDarkMode: Bool {
+        switch preference {
+        case .dark:
+            return true
+        case .light:
+            return false
+        case .system:
+            return NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        }
     }
 
     init() {
-        self.isDarkMode = UserDefaults.standard.bool(forKey: "isDarkMode")
+        let stored = UserDefaults.standard.string(forKey: "themePreference")
+        self.preference = stored.flatMap(ThemePreference.init) ?? .system
     }
 
     func toggleTheme() {
-        isDarkMode.toggle()
+        preference = isDarkMode ? .light : .dark
     }
 }

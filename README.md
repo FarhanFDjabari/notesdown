@@ -5,12 +5,14 @@ NotesDown is a native macOS Markdown editor with a split editor/preview workflow
 ## Features
 
 - **Split editor and preview**: Write in a monospace editor while the rendered preview updates live.
+- **Synchronized scrolling**: The editor and preview stay aligned by scroll position, in both directions.
 - **Native Markdown rendering**: Uses `swift-markdown` plus SwiftUI views for headings, inline styling, lists, block quotes, code blocks, horizontal rules, links, and tables.
 - **Table support**: Renders Markdown tables with alignment, horizontal scrolling, stable row heights, and long-cell safeguards.
 - **Mermaid flowchart previews**: Shows a lightweight native preview for Mermaid flowchart edges while preserving the source block.
 - **Multiple documents**: Open untitled documents, selected files, multiple files in new windows, and new tabs.
+- **Single window on external open**: Opening files from Finder reuses an empty window instead of leaving a stray one behind.
 - **Markdown file dialogs**: Supports `.md`, `.markdown`, `.mdown`, and `.mkd` files.
-- **Light and dark themes**: Toggle the app color scheme from the toolbar.
+- **System-aware themes**: Follows the macOS appearance by default; toggle light or dark from the toolbar to override.
 - **Offline first**: No web views, CDN dependencies, or network access are required for editing and previewing.
 - **Apple Silicon focused**: Project settings target arm64 macOS builds.
 
@@ -26,7 +28,7 @@ NotesDown is a native macOS Markdown editor with a split editor/preview workflow
 
 ## Requirements
 
-- macOS 14.0 or later for the app target
+- macOS 15.0 or later for the app target
 - Xcode with macOS SDK support
 - Apple Silicon Mac for the default project architecture
 - Swift Package Manager, included with Xcode
@@ -80,14 +82,15 @@ NotesDown follows an MVVM structure with protocol-based file I/O and app-level m
 NotesDown/
 ├── NotesDownApp.swift          # App entry point, windows, commands, app delegate
 ├── ContentView.swift           # Main split editor/preview coordinator
-├── ThemeManager.swift          # Light/dark theme state
+├── ThemeManager.swift          # System/light/dark theme state
 ├── Models/
 │   └── MarkdownDocument.swift  # Document model
 ├── ViewModels/
 │   └── DocumentViewModel.swift # Document state and file coordination
 ├── Views/
 │   ├── MarkdownEditorView.swift
-│   └── MarkdownPreviewView.swift
+│   ├── MarkdownPreviewView.swift
+│   └── ScrollSync.swift        # Editor/preview scroll synchronization
 ├── Services/
 │   └── FileService.swift       # NSOpenPanel/NSSavePanel file access
 └── NotesDown.entitlements      # App sandbox permissions
@@ -95,10 +98,12 @@ NotesDown/
 
 ### Key Components
 
-- **`NotesDownApp`** configures the primary window group, URL-backed document windows, app commands, and reopen behavior.
-- **`WindowManager`** queues external or multi-file open requests into new windows.
+- **`NotesDownApp`** configures the single `URL?`-keyed window group, app commands, and reopen behavior.
+- **`WindowManager`** routes open-document events, loading each file into a fresh window and closing leftover empty windows so external opens resolve to one window; it also tabs newly opened windows into the key window.
 - **`NotesDownCommands`** owns menu commands and keyboard shortcuts for new windows, tabs, opening, and saving.
 - **`ContentView`** coordinates the editor, preview, toolbar actions, file-opening notifications, and document command handlers.
+- **`ThemeManager`** tracks the theme preference (system, light, or dark), following the system appearance until the user overrides it.
+- **`ScrollSyncController`** keeps the editor and preview aligned by scroll fraction, propagating real scrolls while ignoring layout-driven geometry changes.
 - **`DocumentViewModel`** owns document state, save/open actions, modified tracking, and user-facing errors.
 - **`FileService`** provides async file open/save operations through native macOS panels.
 - **`MarkdownPreviewView`** parses Markdown into native SwiftUI rendering views, including tables and Mermaid flowchart blocks.
