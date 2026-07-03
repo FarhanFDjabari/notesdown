@@ -4,6 +4,7 @@ struct ContentView: View {
     let fileURL: URL?
 
     @StateObject private var documentViewModel = DocumentViewModel()
+    @StateObject private var scrollSync = ScrollSyncController()
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var windowManager: WindowManager
     @Environment(\.openWindow) private var openWindow
@@ -15,11 +16,11 @@ struct ContentView: View {
 
     var body: some View {
         HSplitView {
-            MarkdownEditorView(text: $documentViewModel.markdownText)
+            MarkdownEditorView(text: $documentViewModel.markdownText, scrollSync: scrollSync)
                 .frame(minWidth: 300)
                 .accessibilityIdentifier("markdown-editor-pane")
 
-            MarkdownPreviewView(markdownText: documentViewModel.markdownText)
+            MarkdownPreviewView(markdownText: documentViewModel.markdownText, scrollSync: scrollSync)
                 .frame(minWidth: 300)
                 .accessibilityIdentifier("markdown-preview-pane")
         }

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MarkdownEditorView: View {
     @Binding var text: String
+    let scrollSync: ScrollSyncController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -12,7 +13,7 @@ struct MarkdownEditorView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(NSColor.controlBackgroundColor))
 
-            MarkdownTextView(text: $text)
+            MarkdownTextView(text: $text, scrollSync: scrollSync)
                 .background(Color(NSColor.textBackgroundColor))
         }
     }
@@ -20,6 +21,7 @@ struct MarkdownEditorView: View {
 
 private struct MarkdownTextView: NSViewRepresentable {
     @Binding var text: String
+    let scrollSync: ScrollSyncController
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
@@ -84,6 +86,7 @@ private struct MarkdownTextView: NSViewRepresentable {
             object: scrollView.contentView
         )
         scrollView.contentView.postsBoundsChangedNotifications = true
+        scrollSync.registerEditor(scrollView)
 
         context.coordinator.updateLineHighlight()
         return hostView
@@ -490,6 +493,9 @@ struct MarkdownEditorColors {
 }
 
 #Preview {
-    MarkdownEditorView(text: .constant("# Hello World\n\nThis is a **markdown** editor."))
-        .frame(width: 400, height: 600)
+    MarkdownEditorView(
+        text: .constant("# Hello World\n\nThis is a **markdown** editor."),
+        scrollSync: ScrollSyncController()
+    )
+    .frame(width: 400, height: 600)
 }

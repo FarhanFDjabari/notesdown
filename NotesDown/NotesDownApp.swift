@@ -15,7 +15,7 @@ struct NotesDownApp: App {
         }
         .windowResizability(.contentSize)
         .commands {
-            NotesDownCommands()
+            NotesDownCommands(windowManager: appDelegate.windowManager)
         }
     }
 }
@@ -42,15 +42,29 @@ final class WindowManager: ObservableObject {
     private var pending: [URL] = []
     private var preExistingWelcomeIDs: Set<ObjectIdentifier> = []
     private var consumedIDs: Set<ObjectIdentifier> = []
+    private weak var pendingTabHost: NSWindow?
 
     func registerWindow(_ window: NSWindow, isPristine: @escaping () -> Bool, load: @escaping (URL) -> Void) {
         let id = ObjectIdentifier(window)
         windows[id] = WindowInfo(window: window, isPristine: isPristine, load: load)
+
+        if let host = pendingTabHost, host !== window {
+            pendingTabHost = nil
+            host.addTabbedWindow(window, ordered: .above)
+            window.makeKeyAndOrderFront(nil)
+        }
+
         consume(into: id)
     }
 
     func unregisterWindow(_ window: NSWindow) {
         windows.removeValue(forKey: ObjectIdentifier(window))
+    }
+
+    /// Tab the next window that opens into `host`. Call immediately before
+    /// asking SwiftUI to open a new window.
+    func addNextWindowAsTab(to host: NSWindow?) {
+        pendingTabHost = host
     }
 
     func open(_ urls: [URL]) {
@@ -133,6 +147,8 @@ extension Notification.Name {
 }
 
 struct NotesDownCommands: Commands {
+    let windowManager: WindowManager
+
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.documentCommandHandlers) private var documentCommandHandlers
 
@@ -144,7 +160,8 @@ struct NotesDownCommands: Commands {
             .keyboardShortcut("n", modifiers: .command)
 
             Button("New Tab") {
-                openNewTab()
+                windowManager.addNextWindowAsTab(to: NSApp.keyWindow)
+                openWindow(value: nil as URL?)
             }
             .keyboardShortcut("t", modifiers: .command)
 
@@ -170,10 +187,6 @@ struct NotesDownCommands: Commands {
             .keyboardShortcut("s", modifiers: .command)
             .disabled(documentCommandHandlers == nil)
         }
-    }
-
-    private func openNewTab() {
-        NSApp.keyWindow?.newWindowForTab(nil)
     }
 }
 
