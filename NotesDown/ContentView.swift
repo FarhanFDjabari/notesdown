@@ -72,10 +72,10 @@ struct ContentView: View {
         ))
         .onAppear {
             openInitialFileIfNeeded()
-            openFilesInNewWindows(windowManager.consumeFilesToOpenInNewWindows())
+            handlePendingFiles()
         }
-        .onChange(of: windowManager.filesToOpenInNewWindows) { _, _ in
-            openFilesInNewWindows(windowManager.consumeFilesToOpenInNewWindows())
+        .onChange(of: windowManager.pendingFiles) { _, _ in
+            handlePendingFiles()
         }
         .alert("Error", isPresented: .constant(documentViewModel.errorMessage != nil)) {
             Button("OK") {
@@ -93,6 +93,19 @@ struct ContentView: View {
         guard !didOpenInitialFile, let initialFileURL else { return }
         didOpenInitialFile = true
         documentViewModel.openFile(at: initialFileURL)
+    }
+
+    private func handlePendingFiles() {
+        let urls = windowManager.consumePendingFiles()
+        guard !urls.isEmpty else { return }
+
+        var remaining = urls
+        if documentViewModel.document.isPristine {
+            let first = remaining.removeFirst()
+            didOpenInitialFile = true
+            documentViewModel.openFile(at: first)
+        }
+        openFilesInNewWindows(remaining)
     }
 
     private func openFilesInNewWindows(_ urls: [URL]) {

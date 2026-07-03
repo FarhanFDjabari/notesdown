@@ -30,26 +30,26 @@ struct NotesDownApp: App {
 }
 
 class WindowManager: ObservableObject {
-    @Published var filesToOpenInNewWindows: [URL] = []
+    @Published var pendingFiles: [URL] = []
 
-    func openInNewWindows(_ urls: [URL]) {
-        filesToOpenInNewWindows.append(contentsOf: urls)
+    func openFiles(_ urls: [URL]) {
+        pendingFiles.append(contentsOf: urls)
     }
 
     @MainActor
-    func consumeFilesToOpenInNewWindows() -> [URL] {
-        let urls = filesToOpenInNewWindows
-        filesToOpenInNewWindows.removeAll()
+    func consumePendingFiles() -> [URL] {
+        let urls = pendingFiles
+        pendingFiles.removeAll()
         return urls
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     let windowManager = WindowManager()
-    
+
     func application(_ application: NSApplication, open urls: [URL]) {
         guard !urls.isEmpty else { return }
-        windowManager.openInNewWindows(urls)
+        windowManager.openFiles(urls)
 
         let visibleWindow = application.windows.first {
             $0.isVisible &&

@@ -20,4 +20,8 @@ struct MarkdownDocument: Identifiable, Equatable {
     var hasUnsavedChanges: Bool {
         isModified
     }
+
+    var isPristine: Bool {
+        fileURL == nil && !isModified
+    }
 }
