@@ -20,6 +20,14 @@ struct NotesDownApp: App {
     }
 }
 
+/// A unique, non-file URL used to open an empty window. Keeping the scene keyed
+/// on `URL?` lets SwiftUI create the launch window on a document open, while the
+/// unique value makes `openWindow(value:)` spawn a new window every time
+/// (`nil` would be de-duplicated, capping tabs/windows).
+func emptyWindowURL() -> URL {
+    URL(string: "notesdown://new/\(UUID().uuidString)")!
+}
+
 /// Routes open-document requests to windows.
 ///
 /// The app declares a single value-based `WindowGroup`. For an open-document
@@ -155,13 +163,13 @@ struct NotesDownCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Window") {
-                openWindow(value: nil as URL?)
+                openWindow(value: emptyWindowURL() as URL?)
             }
             .keyboardShortcut("n", modifiers: .command)
 
             Button("New Tab") {
                 windowManager.addNextWindowAsTab(to: NSApp.keyWindow)
-                openWindow(value: nil as URL?)
+                openWindow(value: emptyWindowURL() as URL?)
             }
             .keyboardShortcut("t", modifiers: .command)
 

@@ -11,7 +11,9 @@ struct ContentView: View {
     @State private var didOpenInitialFile = false
 
     init(fileURL: URL? = nil) {
-        self.fileURL = fileURL
+        // Only real files are loaded; the sentinel URL used to open empty
+        // windows/tabs is not a file URL and is treated as an empty document.
+        self.fileURL = (fileURL?.isFileURL == true) ? fileURL : nil
     }
 
     var body: some View {
