@@ -7,17 +7,8 @@ struct NotesDownApp: App {
     @StateObject private var themeManager = ThemeManager()
     
     var body: some Scene {
-        WindowGroup(id: "main") {
-            ContentView()
-                .environmentObject(themeManager)
-                .preferredColorScheme(themeManager.colorScheme)
-                .environmentObject(appDelegate.windowManager)
-        }
-        .handlesExternalEvents(matching: Set(arrayLiteral: "main"))
-        .windowResizability(.contentSize)
-
-        WindowGroup("Markdown Document", for: URL.self) { fileURL in
-            ContentView(initialFileURL: fileURL.wrappedValue)
+        WindowGroup(for: URL?.self) { $url in
+            ContentView(fileURL: url ?? nil)
                 .environmentObject(themeManager)
                 .preferredColorScheme(themeManager.colorScheme)
                 .environmentObject(appDelegate.windowManager)
@@ -29,49 +20,96 @@ struct NotesDownApp: App {
     }
 }
 
-class WindowManager: ObservableObject {
-    @Published var pendingFiles: [URL] = []
-
-    func openFiles(_ urls: [URL]) {
-        pendingFiles.append(contentsOf: urls)
+/// Routes open-document requests to windows.
+///
+/// The app declares a single value-based `WindowGroup`. For an open-document
+/// event macOS/SwiftUI opens a fresh *empty* window per file (the launch window
+/// at cold start, new empty windows while already running) but never binds the
+/// opened file to it — the file arrives only via `AppDelegate.application(_:open:)`.
+///
+/// So this type loads each pending file into a fresh empty window as it
+/// registers, then closes any pre-existing pristine "welcome" window so a
+/// single window shows the file instead of leaving an empty one beside it.
+@MainActor
+final class WindowManager: ObservableObject {
+    private struct WindowInfo {
+        weak var window: NSWindow?
+        let isPristine: () -> Bool
+        let load: (URL) -> Void
     }
 
-    @MainActor
-    func consumePendingFiles() -> [URL] {
-        let urls = pendingFiles
-        pendingFiles.removeAll()
-        return urls
+    private var windows: [ObjectIdentifier: WindowInfo] = [:]
+    private var pending: [URL] = []
+    private var preExistingWelcomeIDs: Set<ObjectIdentifier> = []
+    private var consumedIDs: Set<ObjectIdentifier> = []
+
+    func registerWindow(_ window: NSWindow, isPristine: @escaping () -> Bool, load: @escaping (URL) -> Void) {
+        let id = ObjectIdentifier(window)
+        windows[id] = WindowInfo(window: window, isPristine: isPristine, load: load)
+        consume(into: id)
+    }
+
+    func unregisterWindow(_ window: NSWindow) {
+        windows.removeValue(forKey: ObjectIdentifier(window))
+    }
+
+    func open(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        if pending.isEmpty {
+            preExistingWelcomeIDs = Set(
+                windows.compactMap { id, info in
+                    (info.window != nil && info.isPristine()) ? id : nil
+                }
+            )
+        }
+        pending.append(contentsOf: urls)
+
+        // A window that registered before this event but is not a stale welcome
+        // we intend to close is a valid target too. Otherwise we wait for the
+        // empty window SwiftUI opens for this open-document event.
+        for id in windows.keys where !preExistingWelcomeIDs.contains(id) {
+            consume(into: id)
+        }
+    }
+
+    private func consume(into id: ObjectIdentifier) {
+        guard !pending.isEmpty,
+              !consumedIDs.contains(id),
+              !preExistingWelcomeIDs.contains(id),
+              let info = windows[id],
+              let window = info.window,
+              info.isPristine()
+        else { return }
+
+        consumedIDs.insert(id)
+        info.load(pending.removeFirst())
+        window.makeKeyAndOrderFront(nil)
+
+        if pending.isEmpty {
+            finishOpenBatch()
+        }
+    }
+
+    private func finishOpenBatch() {
+        for id in preExistingWelcomeIDs {
+            guard let info = windows[id], let window = info.window, info.isPristine() else { continue }
+            window.close()
+        }
+        preExistingWelcomeIDs.removeAll()
+        consumedIDs.removeAll()
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     let windowManager = WindowManager()
 
     func application(_ application: NSApplication, open urls: [URL]) {
         guard !urls.isEmpty else { return }
-        windowManager.openFiles(urls)
-
-        let visibleWindow = application.windows.first {
-            $0.isVisible &&
-            !$0.isMiniaturized &&
-            $0.canBecomeKey
-        }
-
-        if let window = visibleWindow {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            let minimizedWindow = application.windows.first { $0.isMiniaturized }
-
-            if let window = minimizedWindow {
-                window.deminiaturize(nil)
-            } else {
-                NSApp.activate(ignoringOtherApps: true)
-                let bundleURL = Bundle.main.bundleURL
-                NSWorkspace.shared.openApplication(at: bundleURL, configuration: NSWorkspace.OpenConfiguration())
-            }
-        }
+        windowManager.open(urls)
     }
-    
+
     // Handle the case when app should reopen (e.g., clicking dock icon when no windows are visible)
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
@@ -101,7 +139,7 @@ struct NotesDownCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Window") {
-                openWindow(id: "main")
+                openWindow(value: nil as URL?)
             }
             .keyboardShortcut("n", modifiers: .command)
 
