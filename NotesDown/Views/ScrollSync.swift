@@ -27,6 +27,7 @@ final class ScrollSyncController: ObservableObject {
     private var expectedEditorFraction: CGFloat?
 
     private static let epsilon: CGFloat = 0.002
+    private static let sizeEpsilon: CGFloat = 0.5
 
     // MARK: Editor
 
@@ -58,6 +59,10 @@ final class ScrollSyncController: ObservableObject {
     // MARK: Preview
 
     func previewGeometryChanged(offsetY: CGFloat, contentHeight: CGFloat, containerHeight: CGFloat) {
+        // A content re-render or resize (not a scroll) changes the geometry too;
+        // record it but do not move the editor.
+        let sizeChanged = abs(contentHeight - previewContentHeight) > Self.sizeEpsilon
+            || abs(containerHeight - previewContainerHeight) > Self.sizeEpsilon
         previewContentHeight = contentHeight
         previewContainerHeight = containerHeight
 
@@ -68,6 +73,7 @@ final class ScrollSyncController: ObservableObject {
             expectedPreviewFraction = nil
             return
         }
+        guard !sizeChanged else { return }
 
         guard let editorScroll else { return }
         expectedEditorFraction = fraction
